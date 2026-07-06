@@ -352,6 +352,10 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
         <span class="proj-item-dot" style="background:#ec4899"></span>
         <div><div>Brasserie Lili</div><div class="proj-item-sub">Nouveau projet</div></div>
       </div>
+      <div class="proj-item" onclick="switchProject(2)">
+        <span class="proj-item-dot" style="background:#22c55e"></span>
+        <div><div>Brasserie Casel</div><div class="proj-item-sub">Nouveau projet</div></div>
+      </div>
     </div>
   </div>
   <div class="tab" onclick="go('dashboard',this)"> Vue d'ensemble</div>
@@ -6606,6 +6610,7 @@ function saveProjet(){
 const PROJECTS=[
   {id:0,name:'Bistrot Roméo',color:'#6366f1',sub:'Ouverture mars 2027'},
   {id:1,name:'Brasserie Lili',color:'#ec4899',sub:'Nouveau projet'},
+  {id:2,name:'Brasserie Casel',color:'#22c55e',sub:'Nouveau projet'},
 ];
 let currentProject=Number(_lsGet('romeo_project')||0);
 
