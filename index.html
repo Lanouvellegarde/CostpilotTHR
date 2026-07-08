@@ -2267,7 +2267,10 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
       <div class="pg-eyebrow">Détail</div>
       <div class="pg-title">Budget lot par lot</div>
     </div>
-    <button class="btn btn-pri" onclick="openAddLot()"> Ajouter un lot</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn" id="btn-budget-lock" onclick="toggleBudgetLock()" style="display:none">🔓 Budget déverrouillé</button>
+      <button class="btn btn-pri" onclick="openAddLot()"> Ajouter un lot</button>
+    </div>
   </div>
   <div id="lots-list"><div class="cat-block">
       <div class="cat-head" onclick="toggleCat('Honoraires')">
@@ -4492,6 +4495,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
 <div class="modal-bg" id="m-lot"><div class="modal">
   <h3 id="m-lot-title">Nouveau lot</h3>
   <input type="hidden" id="lot-edit-id">
+  <div id="lot-lock-banner" style="display:none;background:#fef2f2;border:1px solid #f5c6c6;color:#c0392b;border-radius:8px;padding:8px 10px;font-size:12px;margin-bottom:10px">🔒 Budget figé — seuls les devis (signé / en cours) sont modifiables sur ce lot.</div>
   <div class="fg"><label>Catégorie</label><select id="f-cat"><option>Honoraires</option><option>Travaux</option><option>Déco</option><option>Technique</option><option>Technique cuisine &amp; bar froid</option><option>FF&amp;E / OS&amp;E</option><option>OPS</option><option>Assurances</option></select></div>
   <div class="fg"><label>Nom du lot</label><input id="f-name" type="text"></div>
   <div class="fg"><label>Prestataire</label><input id="f-presta" type="text"></div>
@@ -4505,7 +4509,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
   <div class="fg" style="border-top:1px solid #ebe9e3;padding-top:14px;margin-top:6px">
     <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <span>Sous-lignes du lot</span>
-      <button type="button" class="btn btn-sm" onclick="addLigne()" style="padding:3px 10px;font-size:12px">+ Ajouter une ligne</button>
+      <button type="button" class="btn btn-sm" id="btn-add-ligne" onclick="addLigne()" style="padding:3px 10px;font-size:12px">+ Ajouter une ligne</button>
     </label>
     <div id="f-lignes-wrap"></div>
     <div id="f-lignes-hint" style="font-size:11px;color:#999;margin-top:8px;display:none">Budget / Devis / Signé du lot = somme des sous-lignes (calcul automatique).</div>
@@ -4549,8 +4553,8 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
     <div class="fg"><label>N° facture</label><input id="fac-num" type="text" placeholder="FAC-2026-XXX"></div>
   </div>
   <div class="fg"><label>Lots concernés (plusieurs possibles)</label>
-    <input id="fac-lot-search" type="text" placeholder="🔍 Rechercher un lot…" oninput="filterFacLots()" style="width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px;box-sizing:border-box">
-    <div id="fac-lots-check" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#f7f6f3;border-radius:8px;border:1px solid #e5e3dd;max-height:140px;overflow-y:auto"></div>
+    <select id="fac-lot-pick" onchange="addFacLot(this.value)" style="width:100%;padding:8px 9px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px;box-sizing:border-box;background:#fff"></select>
+    <div id="fac-lots-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
   </div>
   <div class="fg-row">
     <div class="fg"><label>Montant TTC (€)</label><input id="fac-amt" type="number" min="0" oninput="updateHtPreview()"></div>
@@ -4746,6 +4750,7 @@ let paiements=[];
 let factures=[];
 let tsItems=[{"id":301,"name":"Renfort structure trémie","lotId":13,"amt":4500,"statut":"estime","presta":"Gros-œuvre MARTIN"},{"id":302,"name":"Adaptation réseau plomberie cuisine","lotId":19,"amt":2800,"statut":"signe","presta":"Plomberie DUPONT"}];
 let nid=445;
+let budgetLock={locked:false,at:null,by:null};
 
 // Source data snapshot (fallback when localStorage is empty)
 const SOURCE_LOTS=JSON.parse(JSON.stringify(lots));
@@ -4787,6 +4792,7 @@ async function loadDataFromSupabase(projectId){
     lots=remote.lots||[];paiements=remote.paiements||[];
     factures=remote.factures||[];tsItems=remote.tsItems||[];
     if(remote.projet)Object.assign(projet,remote.projet);
+    if(remote.budgetLock)budgetLock=remote.budgetLock;
     nid=remote.nid||Math.max(1,...[...lots,...paiements,...factures,...tsItems].map(x=>x.id+1),200);
     return true;
   }
@@ -5594,7 +5600,7 @@ function renderTS(){
   document.getElementById('ts-list').innerHTML=h;
 }
 
-function render(){try{renderNav();}catch(e){console.error('renderNav',e);}try{renderDashboard();}catch(e){console.error('renderDashboard',e);}try{renderBudget();}catch(e){console.error('renderBudget',e);}try{renderSuivi();}catch(e){console.error('renderSuivi',e);}try{renderTS();}catch(e){console.error('renderTS',e);}try{renderProjet();}catch(e){console.error('renderProjet',e);}try{renderGantt();}catch(e){console.error('renderGantt',e);}try{renderAudit();}catch(e){console.error('renderAudit',e);}try{fillLotSelects();}catch(e){}}function toggleRow(id){if(openRows.has(id))openRows.delete(id);else openRows.add(id);renderBudget();}
+function render(){try{renderNav();}catch(e){console.error('renderNav',e);}try{renderDashboard();}catch(e){console.error('renderDashboard',e);}try{renderBudget();}catch(e){console.error('renderBudget',e);}try{renderSuivi();}catch(e){console.error('renderSuivi',e);}try{renderTS();}catch(e){console.error('renderTS',e);}try{renderProjet();}catch(e){console.error('renderProjet',e);}try{renderGantt();}catch(e){console.error('renderGantt',e);}try{renderAudit();}catch(e){console.error('renderAudit',e);}try{fillLotSelects();}catch(e){}try{renderLockBtn();}catch(e){}}function toggleRow(id){if(openRows.has(id))openRows.delete(id);else openRows.add(id);renderBudget();}
 let closedCatsGantt=new Set();
 
 function toggleCat(cat){if(closedCats.has(cat))closedCats.delete(cat);else closedCats.add(cat);renderBudget();}
@@ -5859,6 +5865,36 @@ function fillLotSelects(){const o=lots.map(l=>`<option value="${l.id}">${l.name}
 function closeAll(){document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('on'));}
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeAll();}));
 
+function isAdminUser(){return typeof currentUser!=='undefined'&&currentUser&&currentUser.role==='admin';}
+function budgetFrozenNow(){const e=document.getElementById('lot-edit-id');return !!(budgetLock&&budgetLock.locked)&&!!(e&&e.value);}
+function renderLockBtn(){
+  const b=document.getElementById('btn-budget-lock');if(!b)return;
+  const locked=!!(budgetLock&&budgetLock.locked);
+  b.style.display=(locked||isAdminUser())?'inline-flex':'none';
+  if(locked){
+    const when=budgetLock.at?new Date(budgetLock.at).toLocaleDateString('fr-FR'):'';
+    b.innerHTML='🔒 Budget figé';
+    b.title='Figé le '+when+(budgetLock.by?(' par '+budgetLock.by):'')+(isAdminUser()?' — cliquer pour déverrouiller':' — verrou admin');
+    b.style.background='#fef2f2';b.style.borderColor='#f5c6c6';b.style.color='#c0392b';
+  }else{
+    b.innerHTML='🔓 Figer le budget';
+    b.title='Figer le budget de tous les lots (admin)';
+    b.style.background='';b.style.borderColor='';b.style.color='';
+  }
+}
+function toggleBudgetLock(){
+  if(!isAdminUser()){alert('Seul un administrateur peut verrouiller ou déverrouiller le budget.');return;}
+  if(!(budgetLock&&budgetLock.locked)){
+    if(!confirm('Figer le budget de tous les lots à maintenant ?\n\nLes budgets ne pourront plus être modifiés (les devis signé / en cours resteront éditables). Le déverrouillage est réservé aux administrateurs.'))return;
+    budgetLock={locked:true,at:new Date().toISOString(),by:(typeof currentUser!=='undefined'&&currentUser?currentUser.name:'?')};
+    logAudit('Budget verrouillé','tous les lots');
+  }else{
+    if(!confirm('Déverrouiller le budget ? Les budgets redeviendront modifiables.'))return;
+    budgetLock={locked:false,at:null,by:null};
+    logAudit('Budget déverrouillé','');
+  }
+  save();render();renderLockBtn();
+}
 function openAddLot(){
   document.getElementById('m-lot-title').textContent='Nouveau lot';
   document.getElementById('lot-edit-id').value='';
@@ -5875,31 +5911,39 @@ function openAddLot(){
 let _editLignes=[];
 function recomputeLotFromLignes(){
   const has=_editLignes.length>0;
+  const frozen=budgetFrozenNow();
   const b=_editLignes.reduce((s,l)=>s+(Number(l.budget)||0),0);
   const e=_editLignes.reduce((s,l)=>s+(Number(l.estime)||0),0);
   const g=_editLignes.reduce((s,l)=>s+(Number(l.signe)||0),0);
-  ['f-budget','f-estime','f-signe'].forEach((id,k)=>{
+  const bel=document.getElementById('f-budget');
+  if(bel){const dis=has||frozen;bel.disabled=dis;bel.style.background=dis?'#efeee9':'';bel.style.color=dis?'#8a8a86':'';if(has&&!frozen)bel.value=b;}
+  [['f-estime',e],['f-signe',g]].forEach(([id,val])=>{
     const el=document.getElementById(id);if(!el)return;
     el.disabled=has;el.style.background=has?'#efeee9':'';el.style.color=has?'#8a8a86':'';
-    if(has)el.value=(k===0?b:k===1?e:g);
+    if(has)el.value=val;
   });
   const hint=document.getElementById('f-lignes-hint');if(hint)hint.style.display=has?'block':'none';
+  const banner=document.getElementById('lot-lock-banner');if(banner)banner.style.display=frozen?'block':'none';
 }
 function renderLignesEditor(){
   const wrap=document.getElementById('f-lignes-wrap');if(!wrap)return;
+  const frozen=budgetFrozenNow();
+  const addBtn=document.getElementById('btn-add-ligne');if(addBtn){addBtn.disabled=frozen;addBtn.style.opacity=frozen?'.4':'';addBtn.style.pointerEvents=frozen?'none':'';}
   if(!_editLignes.length){wrap.innerHTML='<div style="font-size:11px;color:#bbb;padding:2px 0 0">Aucune sous-ligne — budget du lot saisi manuellement ci-dessus.</div>';recomputeLotFromLignes();return;}
   const head='<div style="display:flex;gap:6px;font-size:10px;color:#b5b5b0;text-transform:uppercase;letter-spacing:.05em;padding:0 2px 4px"><span style="flex:2">Libellé</span><span style="width:72px">Budget</span><span style="width:72px">Devis</span><span style="width:72px">Signé</span><span style="width:20px"></span></div>';
+  const bStyle='width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px';
+  const bStyleFrozen=bStyle+';background:#efeee9;color:#8a8a86';
   wrap.innerHTML=head+_editLignes.map((l,i)=>'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
-    +'<input type="text" value="'+(l.name||'').replace(/"/g,'&quot;')+'" placeholder="Libellé" oninput="updateLigne('+i+',\'name\',this.value)" style="flex:2;min-width:0;padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
-    +'<input type="number" min="0" value="'+(Number(l.budget)||0)+'" oninput="updateLigne('+i+',\'budget\',this.value)" style="width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
-    +'<input type="number" min="0" value="'+(Number(l.estime)||0)+'" oninput="updateLigne('+i+',\'estime\',this.value)" style="width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
-    +'<input type="number" min="0" value="'+(Number(l.signe)||0)+'" oninput="updateLigne('+i+',\'signe\',this.value)" style="width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
-    +'<button type="button" onclick="removeLigne('+i+')" title="Supprimer" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:14px;width:20px;padding:0">✕</button></div>').join('');
+    +'<input type="text" value="'+(l.name||'').replace(/"/g,'&quot;')+'" placeholder="Libellé" '+(frozen?'disabled':'oninput="updateLigne('+i+',\'name\',this.value)"')+' style="flex:2;min-width:0;padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px'+(frozen?';background:#efeee9;color:#8a8a86':'')+'">'
+    +'<input type="number" min="0" value="'+(Number(l.budget)||0)+'" '+(frozen?'disabled style="'+bStyleFrozen+'"':'oninput="updateLigne('+i+',\'budget\',this.value)" style="'+bStyle+'"')+'>'
+    +'<input type="number" min="0" value="'+(Number(l.estime)||0)+'" oninput="updateLigne('+i+',\'estime\',this.value)" style="'+bStyle+'">'
+    +'<input type="number" min="0" value="'+(Number(l.signe)||0)+'" oninput="updateLigne('+i+',\'signe\',this.value)" style="'+bStyle+'">'
+    +(frozen?'<span style="width:20px"></span>':'<button type="button" onclick="removeLigne('+i+')" title="Supprimer" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:14px;width:20px;padding:0">✕</button>')+'</div>').join('');
   recomputeLotFromLignes();
 }
-function addLigne(){_editLignes.push({name:'',budget:0,estime:0,signe:0});renderLignesEditor();
+function addLigne(){if(budgetFrozenNow())return;_editLignes.push({name:'',budget:0,estime:0,signe:0});renderLignesEditor();
   const w=document.getElementById('f-lignes-wrap');if(w){const ins=w.querySelectorAll('input[type=text]');if(ins.length)ins[ins.length-1].focus();}}
-function removeLigne(i){_editLignes.splice(i,1);renderLignesEditor();}
+function removeLigne(i){if(budgetFrozenNow())return;_editLignes.splice(i,1);renderLignesEditor();}
 function updateLigne(i,f,v){if(!_editLignes[i])return;_editLignes[i][f]=(f==='name')?v:(Number(v)||0);if(f!=='name')recomputeLotFromLignes();}
 function editLot(id){
   const l=lots.find(x=>x.id===id);if(!l)return;
@@ -5927,6 +5971,7 @@ function saveLot(){
   let estime=Number(document.getElementById('f-estime').value)||0;
   let signe=Number(document.getElementById('f-signe').value)||0;
   if(lignes.length){budget=lignes.reduce((s,l)=>s+l.budget,0);estime=lignes.reduce((s,l)=>s+l.estime,0);signe=lignes.reduce((s,l)=>s+l.signe,0);}
+  if(eid&&budgetLock&&budgetLock.locked){const cur=lots.find(x=>x.id===Number(eid));if(cur)budget=cur.budget||0;}
   const statut=signe>0?'signe':estime>0?'estime':'budget';
   const data={cat:document.getElementById('f-cat').value,name:document.getElementById('f-name').value.trim(),presta:document.getElementById('f-presta').value,budget,estime,signe,statut,notes:document.getElementById('f-notes').value,resp:document.getElementById('f-resp').value,dateDebut:document.getElementById('f-dateDebut').value,dateFin:document.getElementById('f-dateFin').value,lignes};
   if(!data.name)return;
@@ -5972,31 +6017,40 @@ function savePaiement(){
   closeAll();save();render();
 }
 function openAddFacture(prefillLotId){
-  // Populate lot checkboxes
-  const wrap=document.getElementById('fac-lots-check');
-  if(wrap){
-    wrap.innerHTML=lots.filter(l=>l.signe>0||l.statut==='signe').map(l=>`
-      <label data-name="${(l.name||'').toLowerCase().replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:#fff;border:1px solid #e5e3dd;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap">
-        <input type="checkbox" value="${l.id}" ${prefillLotId===l.id?'checked':''} style="accent-color:#3366cc">
-        <span style="color:#444">${l.name}</span>
-        <span style="color:#aaa;font-size:10px">${f(l.signe)}</span>
-      </label>`).join('');
-  }
+  _facLots=(prefillLotId!==undefined&&prefillLotId!==null&&prefillLotId!=='')?[Number(prefillLotId)]:[];
+  renderFacLotPicker();
+  renderFacChips();
   ['fac-num','fac-presta'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['fac-amt'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('fac-date').value=new Date().toISOString().slice(0,10);
   document.getElementById('fac-dateprev').value='';
   document.getElementById('fac-statut').value='attente';
   document.getElementById('fac-file-list').textContent='📎 Cliquer pour joindre une facture';pendingFileData=null;
-  const _fs=document.getElementById('fac-lot-search');if(_fs){_fs.value='';filterFacLots();}
   document.getElementById('m-facture').classList.add('on');
 }
-function filterFacLots(){
-  const q=(document.getElementById('fac-lot-search')?.value||'').toLowerCase().trim();
-  document.querySelectorAll('#fac-lots-check label').forEach(el=>{
-    const n=el.getAttribute('data-name')||'';
-    el.style.display=(!q||n.includes(q))?'':'none';
-  });
+let _facLots=[];
+function renderFacLotPicker(){
+  const sel=document.getElementById('fac-lot-pick');if(!sel)return;
+  const avail=lots.filter(l=>!_facLots.includes(l.id)).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  sel.innerHTML='<option value="">➕ Ajouter un lot…</option>'+avail.map(l=>'<option value="'+l.id+'">'+(l.name||('Lot '+l.id))+'</option>').join('');
+  sel.value='';
+}
+function addFacLot(v){
+  const id=Number(v);if(!id)return;
+  if(!_facLots.includes(id))_facLots.push(id);
+  renderFacLotPicker();renderFacChips();
+}
+function removeFacLot(id){
+  _facLots=_facLots.filter(x=>x!==Number(id));
+  renderFacLotPicker();renderFacChips();
+}
+function renderFacChips(){
+  const wrap=document.getElementById('fac-lots-chips');if(!wrap)return;
+  if(!_facLots.length){wrap.innerHTML='<span style="font-size:11px;color:#bbb">Aucun lot sélectionné.</span>';return;}
+  wrap.innerHTML=_facLots.map(id=>{
+    const l=lots.find(x=>x.id===id);const nm=l?l.name:('Lot '+id);
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:14px;padding:3px 8px 3px 10px;font-size:12px">'+nm+'<button type="button" onclick="removeFacLot('+id+')" style="border:none;background:none;color:#6366f1;cursor:pointer;font-size:13px;line-height:1;padding:0">✕</button></span>';
+  }).join('');
 }
 
 function openFile(id){
@@ -6042,8 +6096,7 @@ function saveFacture(){
   const datePrev=document.getElementById('fac-dateprev').value;
   const statut=document.getElementById('fac-statut').value;
   const tva=Number(document.getElementById('fac-tva').value)||20;
-  const checks=document.querySelectorAll('#fac-lots-check input[type=checkbox]:checked');
-  const lotIds=[...checks].map(cb=>Number(cb.value));
+  const lotIds=[..._facLots];
   if(!num||!amt||!date||!lotIds.length)return alert('Merci de remplir le numéro, le montant, la date et sélectionner au moins un lot.');
   factures.push({id:nid++,num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,file:pendingFile?pendingFile.name:null,fileData:pendingFileData||null});
   logAudit('Facture déposée',num+' '+f(amt)+' — '+presta);
@@ -6685,12 +6738,13 @@ let currentProject=Number(_lsGet('romeo_project')||0);
 function getSnapshot(){
   return{lots:JSON.parse(JSON.stringify(lots)),paiements:JSON.parse(JSON.stringify(paiements)),
     factures:JSON.parse(JSON.stringify(factures)),tsItems:JSON.parse(JSON.stringify(tsItems)),
-    projet:JSON.parse(JSON.stringify(projet))};
+    projet:JSON.parse(JSON.stringify(projet)),budgetLock:JSON.parse(JSON.stringify(budgetLock))};
 }
 function applySnapshot(snap){
   lots=snap.lots||[];paiements=snap.paiements||[];
   factures=snap.factures||[];tsItems=snap.tsItems||[];
   if(snap.projet)Object.assign(projet,snap.projet);
+  budgetLock=(snap.budgetLock&&typeof snap.budgetLock==='object')?JSON.parse(JSON.stringify(snap.budgetLock)):{locked:false,at:null,by:null};
   nid=Math.max(1,...[...lots,...paiements,...factures,...tsItems].map(x=>x.id+1),200);
 }
 function switchProject(idx){
@@ -6724,6 +6778,7 @@ function switchProject(idx){
       lots=remoteData.lots||[];paiements=remoteData.paiements||[];
       factures=remoteData.factures||[];tsItems=remoteData.tsItems||[];
       if(remoteData.projet)Object.assign(projet,remoteData.projet);
+      if(remoteData.budgetLock)budgetLock=remoteData.budgetLock;
       nid=remoteData.nid||nid;
       render();
       _sbApplyingRemote=false;
@@ -6787,6 +6842,7 @@ render();
     lots=remoteData.lots||[];paiements=remoteData.paiements||[];
     factures=remoteData.factures||[];tsItems=remoteData.tsItems||[];
     if(remoteData.projet)Object.assign(projet,remoteData.projet);
+    if(remoteData.budgetLock)budgetLock=remoteData.budgetLock;
     nid=remoteData.nid||nid;
     try{_lsSet('romeo3',JSON.stringify({lots,paiements,factures,tsItems,nid}))}catch(e){}
     render();
