@@ -4809,6 +4809,14 @@ const lotFac=id=>factures.filter(f=>(f.lotIds||[f.lotId]).includes(id)).reduce((
 },0);
 const lotEngage=id=>Math.max(0,lotFac(id)-lotDec(id));
 const lotSigneNonFac=(lot)=>Math.max(0,(lot.signe||0)-lotFac(lot.id));
+const lotFactured=id=>{
+  const facHT=factures.filter(f=>(f.lotIds||[f.lotId]).includes(id)).reduce((a,f)=>{
+    const share=f.lotIds&&f.lotIds.length>1?1/f.lotIds.length:1;
+    return a+ht(f)*share;
+  },0);
+  const tsHT=tsItems.filter(t=>t.lotId===id&&t.statut==='signe').reduce((a,t)=>a+(t.amt||0),0);
+  return facHT+tsHT;
+};
 const facStatut={attente:'En attente',partiel:'Part. payée',payee:'Payée'};
 const facColor={attente:'#7a5000',partiel:'#1240a0',payee:'#1a6635'};
 let openRows=new Set();
@@ -4931,7 +4939,54 @@ function renderDashboard(){
       </div>
     </div>`;
   });
-  document.getElementById('dash-cats').innerHTML=catHtml;
+  let treeHtml='<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#bbb;margin:20px 0 10px">Détail par lot — Budget · Signé · Facturé</div>';
+  cats.forEach(cat=>{
+    const cl=lots.filter(l=>l.cat===cat).sort((a,b)=>(b.budget||0)-(a.budget||0));
+    if(!cl.length)return;
+    const cB=cl.reduce((a,l)=>a+(l.budget||0),0);
+    const cS=cl.reduce((a,l)=>a+(l.signe||0),0);
+    const cF=cl.reduce((a,l)=>a+lotFactured(l.id),0);
+    const color=CAT_COLORS_DASH[cat]||'#94a3b8';
+    const catOver=cF>cS;
+    treeHtml+=`<div class="cat-block">
+      <div class="cat-head" style="cursor:default">
+        <div class="cat-color-strip" style="background:${color}"></div>
+        <div class="cat-head-inner">
+          <div class="cat-h-info">
+            <div class="cat-h-name">${cat}</div>
+            <div class="cat-h-sub">${cl.length} lot${cl.length>1?'s':''} · ${pct(cB,tb)}% du budget global</div>
+          </div>
+          <div class="cat-h-right">
+            <div class="cat-h-stat"><div class="cat-h-stat-v">${f(cB)}</div><div class="cat-h-stat-l">Budget</div></div>
+            <div class="cat-h-stat"><div class="cat-h-stat-v" style="color:${cS?color:'#ccc'}">${cS?f(cS):'—'}</div><div class="cat-h-stat-l">Signé</div></div>
+            <div class="cat-h-stat"><div class="cat-h-stat-v" style="color:${catOver?'#ef4444':cF?'#1c1c1a':'#ccc'};font-weight:${catOver?'700':'400'}">${cF?f(Math.round(cF)):'—'}</div><div class="cat-h-stat-l" style="color:${catOver?'#ef4444':'#bbb'}">Facturé${catOver?' ⚠':''}</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="lots-wrap">${cl.map(lot=>{
+        const lf=lotFactured(lot.id);
+        const lotOver=lf>(lot.signe||0)&&lf>0;
+        const lotBg={signe:'rgba(34,197,94,.06)',estime:'rgba(236,72,153,.05)',budget:'rgba(148,163,184,.05)'}[lot.statut]||'transparent';
+        const subs=Array.isArray(lot.lignes)?lot.lignes:[];
+        let row=`<div class="lot-row" style="background:${lotBg};cursor:default">
+          <div style="flex:1;min-width:0"><div class="lot-name">${tagHtmlFor(lot.statut)}<span class="lot-name-text">${lot.name}</span></div>${lot.presta?`<div class="lot-sub">${lot.presta}</div>`:''}</div>
+          <div class="lot-amt-col"><div class="lot-amt-v">${f(lot.budget||0)}</div><div class="lot-amt-l">Budget</div></div>
+          <div class="lot-amt-col"><div class="lot-amt-v" style="color:${lot.signe?color:'#ccc'}">${lot.signe?f(lot.signe):'—'}</div><div class="lot-amt-l">Signé</div></div>
+          <div class="lot-amt-col" style="width:130px"><div class="lot-amt-v" style="color:${lotOver?'#ef4444':lf?'#1c1c1a':'#ccc'};font-weight:${lotOver?'700':'600'}">${lf?f(Math.round(lf)):'—'}</div><div class="lot-amt-l" style="color:${lotOver?'#ef4444':'#bbb'}">Facturé${lotOver?' ⚠':''}</div></div>
+        </div>`;
+        subs.forEach(sl=>{
+          row+=`<div class="lot-row" style="background:transparent;cursor:default;padding-top:6px;padding-bottom:6px">
+            <div style="flex:1;min-width:0"><div class="lot-name" style="padding-left:18px"><span style="color:#c7c7c7;margin-right:6px">↳</span><span class="lot-name-text" style="font-weight:400;color:#777">${sl.name||'—'}</span></div></div>
+            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:#888">${f(sl.budget||0)}</div><div class="lot-amt-l">Budget</div></div>
+            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:${sl.signe?'#777':'#ccc'}">${sl.signe?f(sl.signe):'—'}</div><div class="lot-amt-l">Signé</div></div>
+            <div class="lot-amt-col" style="width:130px"><div class="lot-amt-v" style="color:#ddd">—</div><div class="lot-amt-l" style="color:#ccc">—</div></div>
+          </div>`;
+        });
+        return row;
+      }).join('')}</div>
+    </div>`;
+  });
+  document.getElementById('dash-cats').innerHTML=treeHtml;
 
   // Status accordions - lots non signés grouped by status
   let statHtml='<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#bbb;margin:20px 0 10px">Statuts des lots</div>';
@@ -5417,6 +5472,9 @@ function renderSuivi(){
         const lf=factures.filter(fc=>(fc.lotIds||[fc.lotId]).includes(lot.id));
         const dec=lf.filter(fc=>fc.statut==='payee').reduce((a,fc)=>a+ht(fc),0)+lp.reduce((a,p)=>a+(p.amt||0),0);
         const fac2=lf.reduce((a,fc)=>a+ht(fc),0);
+        const facTot=lotFactured(lot.id);
+        const variation=facTot-(lot.signe||0);
+        const over=variation>0;
         const engage=Math.max(0,fac2-lf.filter(fc=>fc.statut==='payee').reduce((a,fc)=>a+ht(fc),0));
         const snf=Math.max(0,(lot.signe||0)-fac2);
         const base=lot.signe||lot.budget||1;
@@ -5433,8 +5491,13 @@ function renderSuivi(){
             </div>
             <div style="display:flex;align-items:center;gap:16px;flex-shrink:0">
               <div style="text-align:right">
+                <div style="font-size:14px;font-weight:600;color:${over?'#ef4444':'#1c1c1a'}">${facTot?f(Math.round(facTot)):'—'}</div>
+                <div style="font-size:10px;color:${over?'#ef4444':'#bbb'};text-transform:uppercase;letter-spacing:.06em">Facturé</div>
+              </div>
+              <div style="text-align:right">
                 <div style="font-size:14px;font-weight:600;color:#1c1c1a">${f(lot.signe)}</div>
                 <div style="font-size:10px;color:#bbb;text-transform:uppercase;letter-spacing:.06em">Signé</div>
+                ${over?`<div style="font-size:11px;font-weight:700;color:#ef4444;margin-top:2px">+${f(variation)} ⚠</div>`:''}
               </div>
               ${hasDetail?`<span class="suivi-chev">▾</span>`:''}
             </div>
@@ -5450,6 +5513,7 @@ function renderSuivi(){
               ${snf?`<span style="color:#d0d0d0">·</span><span><span style="color:#3d8c62;font-weight:600">${psnf}%</span> <span style="color:#aaa">non facturé</span></span>`:''}
             </div>
           </div>
+          ${(Array.isArray(lot.lignes)&&lot.lignes.length)?`<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #ebe9e3">${lot.lignes.map(sl=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px"><span style="color:#777"><span style="color:#c7c7c7;margin-right:6px">↳</span>${sl.name||'—'}</span><span style="color:#999">${f(sl.budget||0)} budget${sl.signe?` · <span style="color:#1a7a40">${f(sl.signe)} signé</span>`:''}</span></div>`).join('')}</div>`:''}
           ${hasDetail?`<div class="suivi-detail" style="display:none;margin-top:10px;border-top:1px solid #f5f4f0;padding-top:8px">
             ${lf.length?`<div style="margin-bottom:6px">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#bbb;margin-bottom:6px">Factures</div>
