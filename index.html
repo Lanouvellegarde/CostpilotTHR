@@ -4502,6 +4502,14 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
   <div class="fg-row">
     <div class="fg"><label>Devis signé (€)</label><input id="f-signe" type="number" min="0"></div>
   </div>
+  <div class="fg" style="border-top:1px solid #ebe9e3;padding-top:14px;margin-top:6px">
+    <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span>Sous-lignes du lot</span>
+      <button type="button" class="btn btn-sm" onclick="addLigne()" style="padding:3px 10px;font-size:12px">+ Ajouter une ligne</button>
+    </label>
+    <div id="f-lignes-wrap"></div>
+    <div id="f-lignes-hint" style="font-size:11px;color:#999;margin-top:8px;display:none">Budget / Devis / Signé du lot = somme des sous-lignes (calcul automatique).</div>
+  </div>
   <div class="fg-row">
     <div class="fg"><label>Responsable</label><select id="f-resp"><option value="">—</option></select></div>
     <div class="fg"><label>Début prévu</label><input type="date" id="f-dateDebut"></div>
@@ -4522,7 +4530,8 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
     <div class="fg"><label>Montant (€)</label><input id="p-amt" type="number" min="0"></div>
     <div class="fg"><label>Date</label><input id="p-date" type="date"></div>
   </div>
-  <div class="fg"><label>Lot concerné</label><select id="p-lot"><option value="1">Dorénavant (archi)</option><option value="2">B3 Designer</option><option value="3">Concessionnaires électricité</option><option value="4">Assurance DO</option><option value="5">Bureau de contrôle / CSPS</option><option value="6">BET éclairage / Lighting</option><option value="7">BET structure</option><option value="9">BET acoustique &amp; aéraulique extraction</option><option value="10">Diagnostic amiante / plomb</option><option value="11">Constat d'Huissier</option><option value="12">Curage démolition nettoyage</option><option value="13">Démolition / gros-œuvre / maçonnerie</option><option value="14">Désamiantage</option><option value="15">Électricité CFA / CFO</option><option value="16">SSI / Sécurité incendie</option><option value="17">Réseaux &amp; Wi-Fi</option><option value="18">Sonorisation</option><option value="19">Plomberie</option><option value="20">Climatisation réversible</option><option value="21">Monte-plats / monte-fûts</option><option value="22">Cuisine / pâtisserie / gros équipements</option><option value="23">Frigoriste / chambre froide</option><option value="24">Bar inox sur mesure</option><option value="25">Équipements bar</option><option value="26">Doublage / cloisons / plâtrerie</option><option value="27">Revêtements durs intérieurs — pose</option><option value="28">Pierre naturelle / marbre</option><option value="29">Agencement menuiserie / miroiterie</option><option value="30">Peinture / enduit déco</option><option value="31">Store extérieur banne</option><option value="32">Mobilier intérieur</option><option value="33">Art de la table</option><option value="34">Luminaire intérieur fixe</option><option value="35">Mobilier terrasse</option><option value="36">Végétation terrasse + intérieur</option><option value="37">Enseigne extérieure</option><option value="38">Tenue staff</option><option value="39">Luminaire à poser</option><option value="40">Machine café (Marzocco)</option><option value="41">Chomette Salle</option><option value="400">Concessionaire eau</option><option value="401">BET acoustique — isolement phonique</option><option value="402">Géomètre</option><option value="403">Couverture</option><option value="404">Gestion lumineuse</option><option value="405">Surveillance caméra</option><option value="406">Luminaire technique</option><option value="407">Piège à son</option><option value="408">Bec de tirage</option><option value="409">Menuiserie extérieur</option><option value="411">Étanchéité</option><option value="412">Petite menuiserie intérieur</option><option value="413">Agencement métallerie / serrurerie</option><option value="414">Papier peint - fourniture</option><option value="415">Ouvrage d'art mosaique</option><option value="416">Rideau</option><option value="418">Porte menu</option><option value="419">Menu</option><option value="420">Déco accessoires — neuf ou vintage + carafe</option><option value="421">Luminaire extérieur</option><option value="422">Signalétique</option><option value="423">Accésoire Sanitaire</option><option value="424">Letrage vitrophanie</option><option value="425">Bâche de chantier</option><option value="426">Coffre fort</option><option value="427">Vestiaire</option><option value="428">Cave à vin</option><option value="429">Dyson</option><option value="430">Chomette Cuisine</option><option value="431">Chomette Patisserie</option><option value="432">Logitrade (papier ing + sous bock + dessus de beurre)</option><option value="433">Ebh (cuillere + fourchette)</option><option value="434">Edzar (Plat inox)</option><option value="435">Stelinox (plateau de service)</option><option value="436">EBH (Verre à Biere)</option><option value="437">Ravinet (verrerie autre)</option><option value="438">Couteaux</option><option value="439">Carafes</option><option value="440">Amazon + autre (cuisine + salle)</option><option value="441">iPad/Ordinateur/Imprimante restaurant / imprimante epson</option><option value="442">Plaque devanture</option><option value="443">Porte manteau</option><option value="444">plaque signalétiques toilettes</option></select></div>
+  <div class="fg"><label>Lot concerné</label><select id="p-lot" onchange="fillPayPresta()"><option value="1">Dorénavant (archi)</option><option value="2">B3 Designer</option><option value="3">Concessionnaires électricité</option><option value="4">Assurance DO</option><option value="5">Bureau de contrôle / CSPS</option><option value="6">BET éclairage / Lighting</option><option value="7">BET structure</option><option value="9">BET acoustique &amp; aéraulique extraction</option><option value="10">Diagnostic amiante / plomb</option><option value="11">Constat d'Huissier</option><option value="12">Curage démolition nettoyage</option><option value="13">Démolition / gros-œuvre / maçonnerie</option><option value="14">Désamiantage</option><option value="15">Électricité CFA / CFO</option><option value="16">SSI / Sécurité incendie</option><option value="17">Réseaux &amp; Wi-Fi</option><option value="18">Sonorisation</option><option value="19">Plomberie</option><option value="20">Climatisation réversible</option><option value="21">Monte-plats / monte-fûts</option><option value="22">Cuisine / pâtisserie / gros équipements</option><option value="23">Frigoriste / chambre froide</option><option value="24">Bar inox sur mesure</option><option value="25">Équipements bar</option><option value="26">Doublage / cloisons / plâtrerie</option><option value="27">Revêtements durs intérieurs — pose</option><option value="28">Pierre naturelle / marbre</option><option value="29">Agencement menuiserie / miroiterie</option><option value="30">Peinture / enduit déco</option><option value="31">Store extérieur banne</option><option value="32">Mobilier intérieur</option><option value="33">Art de la table</option><option value="34">Luminaire intérieur fixe</option><option value="35">Mobilier terrasse</option><option value="36">Végétation terrasse + intérieur</option><option value="37">Enseigne extérieure</option><option value="38">Tenue staff</option><option value="39">Luminaire à poser</option><option value="40">Machine café (Marzocco)</option><option value="41">Chomette Salle</option><option value="400">Concessionaire eau</option><option value="401">BET acoustique — isolement phonique</option><option value="402">Géomètre</option><option value="403">Couverture</option><option value="404">Gestion lumineuse</option><option value="405">Surveillance caméra</option><option value="406">Luminaire technique</option><option value="407">Piège à son</option><option value="408">Bec de tirage</option><option value="409">Menuiserie extérieur</option><option value="411">Étanchéité</option><option value="412">Petite menuiserie intérieur</option><option value="413">Agencement métallerie / serrurerie</option><option value="414">Papier peint - fourniture</option><option value="415">Ouvrage d'art mosaique</option><option value="416">Rideau</option><option value="418">Porte menu</option><option value="419">Menu</option><option value="420">Déco accessoires — neuf ou vintage + carafe</option><option value="421">Luminaire extérieur</option><option value="422">Signalétique</option><option value="423">Accésoire Sanitaire</option><option value="424">Letrage vitrophanie</option><option value="425">Bâche de chantier</option><option value="426">Coffre fort</option><option value="427">Vestiaire</option><option value="428">Cave à vin</option><option value="429">Dyson</option><option value="430">Chomette Cuisine</option><option value="431">Chomette Patisserie</option><option value="432">Logitrade (papier ing + sous bock + dessus de beurre)</option><option value="433">Ebh (cuillere + fourchette)</option><option value="434">Edzar (Plat inox)</option><option value="435">Stelinox (plateau de service)</option><option value="436">EBH (Verre à Biere)</option><option value="437">Ravinet (verrerie autre)</option><option value="438">Couteaux</option><option value="439">Carafes</option><option value="440">Amazon + autre (cuisine + salle)</option><option value="441">iPad/Ordinateur/Imprimante restaurant / imprimante epson</option><option value="442">Plaque devanture</option><option value="443">Porte manteau</option><option value="444">plaque signalétiques toilettes</option></select></div>
+  <div class="fg"><label>Prestataire</label><input id="p-presta" type="text" placeholder="repris du lot sélectionné"></div>
   <div class="fg-row">
     <div class="fg"><label>N° facture</label><input id="p-facture" type="text"></div>
     <div class="fg"><label>Mode</label><select id="p-mode"><option>Virement</option><option>Chèque</option><option>Carte</option><option>Prélèvement</option></select></div>
@@ -4540,6 +4549,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
     <div class="fg"><label>N° facture</label><input id="fac-num" type="text" placeholder="FAC-2026-XXX"></div>
   </div>
   <div class="fg"><label>Lots concernés (plusieurs possibles)</label>
+    <input id="fac-lot-search" type="text" placeholder="🔍 Rechercher un lot…" oninput="filterFacLots()" style="width:100%;margin-bottom:6px;padding:7px 9px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px;box-sizing:border-box">
     <div id="fac-lots-check" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#f7f6f3;border-radius:8px;border:1px solid #e5e3dd;max-height:140px;overflow-y:auto"></div>
   </div>
   <div class="fg-row">
@@ -5858,8 +5868,39 @@ function openAddLot(){
   fillRespSelect('f-resp');
   document.getElementById('f-resp').value='';
   ['f-budget','f-estime','f-signe'].forEach(id=>document.getElementById(id).value=0);
+  _editLignes=[];
+  renderLignesEditor();
   document.getElementById('m-lot').classList.add('on');
 }
+let _editLignes=[];
+function recomputeLotFromLignes(){
+  const has=_editLignes.length>0;
+  const b=_editLignes.reduce((s,l)=>s+(Number(l.budget)||0),0);
+  const e=_editLignes.reduce((s,l)=>s+(Number(l.estime)||0),0);
+  const g=_editLignes.reduce((s,l)=>s+(Number(l.signe)||0),0);
+  ['f-budget','f-estime','f-signe'].forEach((id,k)=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.disabled=has;el.style.background=has?'#efeee9':'';el.style.color=has?'#8a8a86':'';
+    if(has)el.value=(k===0?b:k===1?e:g);
+  });
+  const hint=document.getElementById('f-lignes-hint');if(hint)hint.style.display=has?'block':'none';
+}
+function renderLignesEditor(){
+  const wrap=document.getElementById('f-lignes-wrap');if(!wrap)return;
+  if(!_editLignes.length){wrap.innerHTML='<div style="font-size:11px;color:#bbb;padding:2px 0 0">Aucune sous-ligne — budget du lot saisi manuellement ci-dessus.</div>';recomputeLotFromLignes();return;}
+  const head='<div style="display:flex;gap:6px;font-size:10px;color:#b5b5b0;text-transform:uppercase;letter-spacing:.05em;padding:0 2px 4px"><span style="flex:2">Libellé</span><span style="width:72px">Budget</span><span style="width:72px">Devis</span><span style="width:72px">Signé</span><span style="width:20px"></span></div>';
+  wrap.innerHTML=head+_editLignes.map((l,i)=>'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+    +'<input type="text" value="'+(l.name||'').replace(/"/g,'&quot;')+'" placeholder="Libellé" oninput="updateLigne('+i+',\'name\',this.value)" style="flex:2;min-width:0;padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
+    +'<input type="number" min="0" value="'+(Number(l.budget)||0)+'" oninput="updateLigne('+i+',\'budget\',this.value)" style="width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
+    +'<input type="number" min="0" value="'+(Number(l.estime)||0)+'" oninput="updateLigne('+i+',\'estime\',this.value)" style="width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
+    +'<input type="number" min="0" value="'+(Number(l.signe)||0)+'" oninput="updateLigne('+i+',\'signe\',this.value)" style="width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
+    +'<button type="button" onclick="removeLigne('+i+')" title="Supprimer" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:14px;width:20px;padding:0">✕</button></div>').join('');
+  recomputeLotFromLignes();
+}
+function addLigne(){_editLignes.push({name:'',budget:0,estime:0,signe:0});renderLignesEditor();
+  const w=document.getElementById('f-lignes-wrap');if(w){const ins=w.querySelectorAll('input[type=text]');if(ins.length)ins[ins.length-1].focus();}}
+function removeLigne(i){_editLignes.splice(i,1);renderLignesEditor();}
+function updateLigne(i,f,v){if(!_editLignes[i])return;_editLignes[i][f]=(f==='name')?v:(Number(v)||0);if(f!=='name')recomputeLotFromLignes();}
 function editLot(id){
   const l=lots.find(x=>x.id===id);if(!l)return;
   document.getElementById('m-lot-title').textContent='Modifier le lot';
@@ -5874,12 +5915,20 @@ function editLot(id){
   document.getElementById('f-notes').value=l.notes||'';
   document.getElementById('f-dateDebut').value=l.dateDebut||'';
   document.getElementById('f-dateFin').value=l.dateFin||'';
+  _editLignes=Array.isArray(l.lignes)?JSON.parse(JSON.stringify(l.lignes)):[];
+  renderLignesEditor();
   document.getElementById('btn-del-lot').style.display='inline-flex';
   document.getElementById('m-lot').classList.add('on');
 }
 function saveLot(){
   const eid=document.getElementById('lot-edit-id').value;
-  const data={cat:document.getElementById('f-cat').value,name:document.getElementById('f-name').value.trim(),presta:document.getElementById('f-presta').value,budget:Number(document.getElementById('f-budget').value)||0,estime:Number(document.getElementById('f-estime').value)||0,signe:Number(document.getElementById('f-signe').value)||0,statut:(Number(document.getElementById('f-signe').value)||0)>0?'signe':(Number(document.getElementById('f-estime').value)||0)>0?'estime':'budget',notes:document.getElementById('f-notes').value,resp:document.getElementById('f-resp').value,dateDebut:document.getElementById('f-dateDebut').value,dateFin:document.getElementById('f-dateFin').value};
+  const lignes=(_editLignes||[]).filter(l=>(l.name&&l.name.trim())||Number(l.budget)||Number(l.estime)||Number(l.signe)).map(l=>({name:(l.name||'').trim(),budget:Number(l.budget)||0,estime:Number(l.estime)||0,signe:Number(l.signe)||0}));
+  let budget=Number(document.getElementById('f-budget').value)||0;
+  let estime=Number(document.getElementById('f-estime').value)||0;
+  let signe=Number(document.getElementById('f-signe').value)||0;
+  if(lignes.length){budget=lignes.reduce((s,l)=>s+l.budget,0);estime=lignes.reduce((s,l)=>s+l.estime,0);signe=lignes.reduce((s,l)=>s+l.signe,0);}
+  const statut=signe>0?'signe':estime>0?'estime':'budget';
+  const data={cat:document.getElementById('f-cat').value,name:document.getElementById('f-name').value.trim(),presta:document.getElementById('f-presta').value,budget,estime,signe,statut,notes:document.getElementById('f-notes').value,resp:document.getElementById('f-resp').value,dateDebut:document.getElementById('f-dateDebut').value,dateFin:document.getElementById('f-dateFin').value,lignes};
   if(!data.name)return;
   if(eid){const l=lots.find(x=>x.id===Number(eid));if(l)Object.assign(l,data);logAudit('Lot modifié',data.name);}else{lots.push({id:nid++,...data});logAudit('Lot ajouté',data.name);}
   closeAll();save();render();
@@ -5900,14 +5949,25 @@ function deleteLot(){
   logAudit('Lot supprimé',l.name);
   closeAll();save();render();
 }
-function openAddPaiement(){fillLotSelects();document.getElementById('m-pay').classList.add('on');}
+function openAddPaiement(){
+  fillLotSelects();
+  ['p-label','p-amt','p-facture'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  const _pd=document.getElementById('p-date');if(_pd)_pd.value=new Date().toISOString().slice(0,10);
+  fillPayPresta();
+  document.getElementById('m-pay').classList.add('on');
+}
+function fillPayPresta(){
+  const el=document.getElementById('p-presta');if(!el)return;
+  const l=lots.find(x=>x.id===Number(document.getElementById('p-lot').value));
+  el.value=(l&&l.presta)?l.presta:'';
+}
 function savePaiement(){
   const label=document.getElementById('p-label').value.trim();
   const amt=Number(document.getElementById('p-amt').value)||0;
   const date=document.getElementById('p-date').value;
   const lotId=Number(document.getElementById('p-lot').value);
   if(!label||!amt||!date)return;
-  paiements.push({id:nid++,label,amt,date,lotId,facture:document.getElementById('p-facture').value,mode:document.getElementById('p-mode').value});
+  paiements.push({id:nid++,label,amt,date,lotId,presta:document.getElementById('p-presta').value,facture:document.getElementById('p-facture').value,mode:document.getElementById('p-mode').value});
   logAudit('Paiement ajouté',label+' '+f(amt));
   closeAll();save();render();
 }
@@ -5916,7 +5976,7 @@ function openAddFacture(prefillLotId){
   const wrap=document.getElementById('fac-lots-check');
   if(wrap){
     wrap.innerHTML=lots.filter(l=>l.signe>0||l.statut==='signe').map(l=>`
-      <label style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:#fff;border:1px solid #e5e3dd;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap">
+      <label data-name="${(l.name||'').toLowerCase().replace(/"/g,'&quot;')}" style="display:flex;align-items:center;gap:5px;padding:3px 8px;background:#fff;border:1px solid #e5e3dd;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap">
         <input type="checkbox" value="${l.id}" ${prefillLotId===l.id?'checked':''} style="accent-color:#3366cc">
         <span style="color:#444">${l.name}</span>
         <span style="color:#aaa;font-size:10px">${f(l.signe)}</span>
@@ -5928,7 +5988,15 @@ function openAddFacture(prefillLotId){
   document.getElementById('fac-dateprev').value='';
   document.getElementById('fac-statut').value='attente';
   document.getElementById('fac-file-list').textContent='📎 Cliquer pour joindre une facture';pendingFileData=null;
+  const _fs=document.getElementById('fac-lot-search');if(_fs){_fs.value='';filterFacLots();}
   document.getElementById('m-facture').classList.add('on');
+}
+function filterFacLots(){
+  const q=(document.getElementById('fac-lot-search')?.value||'').toLowerCase().trim();
+  document.querySelectorAll('#fac-lots-check label').forEach(el=>{
+    const n=el.getAttribute('data-name')||'';
+    el.style.display=(!q||n.includes(q))?'':'none';
+  });
 }
 
 function openFile(id){
