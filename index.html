@@ -4513,7 +4513,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
       <button type="button" class="btn btn-sm" id="btn-add-ligne" onclick="addLigne()" style="padding:3px 10px;font-size:12px">+ Ajouter une ligne</button>
     </label>
     <div id="f-lignes-wrap"></div>
-    <div id="f-lignes-hint" style="font-size:11px;color:#999;margin-top:8px;display:none">Budget / Devis / Signé du lot = somme des sous-lignes (calcul automatique).</div>
+    <div id="f-lignes-hint" style="font-size:11px;color:#999;margin-top:8px;display:none">Les sous-lignes sont un simple détail du lot — le budget reste géré au niveau du lot.</div>
   </div>
   <div class="fg-row">
     <div class="fg"><label>Responsable</label><select id="f-resp"><option value="">—</option></select></div>
@@ -5009,11 +5009,8 @@ function renderDashboard(){
           <div class="lot-amt-col" style="width:130px"><div class="lot-amt-v" style="color:${lotOver?'#ef4444':lf?'#1c1c1a':'#ccc'};font-weight:${lotOver?'700':'600'}">${lf?f(Math.round(lf)):'—'}</div><div class="lot-amt-l" style="color:${lotOver?'#ef4444':'#bbb'}">Facturé${lotOver?' ⚠':''}</div></div>
         </div>`;
         subs.forEach(sl=>{
-          row+=`<div class="lot-row" style="background:transparent;cursor:default;padding-top:6px;padding-bottom:6px">
-            <div style="flex:1;min-width:0"><div class="lot-name" style="padding-left:18px"><span style="color:#c7c7c7;margin-right:6px">↳</span><span class="lot-name-text" style="font-weight:400;color:#777">${sl.name||'—'}</span></div></div>
-            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:#888">${f(sl.budget||0)}</div><div class="lot-amt-l">Budget</div></div>
-            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:${sl.signe?'#777':'#ccc'}">${sl.signe?f(sl.signe):'—'}</div><div class="lot-amt-l">Signé</div></div>
-            <div class="lot-amt-col" style="width:130px"><div class="lot-amt-v" style="color:#ddd">—</div><div class="lot-amt-l" style="color:#ccc">—</div></div>
+          row+=`<div class="lot-row" style="background:transparent;cursor:default;padding-top:5px;padding-bottom:5px">
+            <div style="flex:1;min-width:0"><div class="lot-name" style="padding-left:18px"><span style="color:#c7c7c7;margin-right:6px">↳</span><span class="lot-name-text" style="font-weight:400;color:#888">${sl.name||'—'}</span></div></div>
           </div>`;
         });
         return row;
@@ -5240,12 +5237,8 @@ function renderBudget(){
           <button class="lot-edit" onclick="event.stopPropagation();editLot(${lot.id})">✎</button>
         </div>`;
         (Array.isArray(lot.lignes)?lot.lignes:[]).forEach(sl=>{
-          h+=`<div class="lot-row" style="background:transparent;cursor:pointer;padding-top:6px;padding-bottom:6px" onclick="editLot(${lot.id})">
-            <div style="flex:1;min-width:0"><div class="lot-name" style="padding-left:18px"><span style="color:#c7c7c7;margin-right:6px">↳</span><span class="lot-name-text" style="font-weight:400;color:#777">${sl.name||'—'}</span></div></div>
-            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:#888">${f(sl.budget||0)}</div><div class="lot-amt-l">Budget</div></div>
-            <div class="lot-amt-col" style="width:130px;text-align:center"><div class="lot-amt-v" style="color:#ccc">—</div><div class="lot-amt-l" style="color:#bbb">Devis en cours</div></div>
-            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:${sl.signe?'#16a34a':'#ccc'}">${sl.signe?f(sl.signe):'—'}</div><div class="lot-amt-l">Signé</div></div>
-            <div class="lot-amt-col" style="width:120px"><div class="lot-amt-v" style="color:#ccc">—</div><div class="lot-amt-l"></div></div>
+          h+=`<div class="lot-row" style="background:transparent;cursor:pointer;padding-top:5px;padding-bottom:5px" onclick="editLot(${lot.id})">
+            <div style="flex:1;min-width:0"><div class="lot-name" style="padding-left:18px"><span style="color:#c7c7c7;margin-right:6px">↳</span><span class="lot-name-text" style="font-weight:400;color:#888">${sl.name||'—'}</span></div></div>
             <button class="lot-edit" onclick="event.stopPropagation();editLot(${lot.id})" style="opacity:.35">✎</button>
           </div>`;
         });
@@ -5568,7 +5561,7 @@ function renderSuivi(){
               ${snf?`<span style="color:#d0d0d0">·</span><span><span style="color:#3d8c62;font-weight:600">${psnf}%</span> <span style="color:#aaa">non facturé</span></span>`:''}
             </div>
           </div>
-          ${(Array.isArray(lot.lignes)&&lot.lignes.length)?`<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #ebe9e3">${lot.lignes.map(sl=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px"><span style="color:#777"><span style="color:#c7c7c7;margin-right:6px">↳</span>${sl.name||'—'}</span><span style="color:#999">${f(sl.budget||0)} budget${sl.signe?` · <span style="color:#1a7a40">${f(sl.signe)} signé</span>`:''}</span></div>`).join('')}</div>`:''}
+          ${(Array.isArray(lot.lignes)&&lot.lignes.length)?`<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #ebe9e3">${lot.lignes.map(sl=>`<div style="padding:2px 0;font-size:12px;color:#777"><span style="color:#c7c7c7;margin-right:6px">↳</span>${sl.name||'—'}</div>`).join('')}</div>`:''}
           ${hasDetail?`<div class="suivi-detail" style="display:none;margin-top:10px;border-top:1px solid #f5f4f0;padding-top:8px">
             ${lf.filter(_plMatch).length?`<div style="margin-bottom:6px">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#bbb;margin-bottom:6px">Factures</div>
@@ -6033,41 +6026,27 @@ function openAddLot(){
 }
 let _editLignes=[];
 function recomputeLotFromLignes(){
-  const has=_editLignes.length>0;
   const frozen=budgetFrozenNow();
-  const b=_editLignes.reduce((s,l)=>s+(Number(l.budget)||0),0);
-  const e=_editLignes.reduce((s,l)=>s+(Number(l.estime)||0),0);
-  const g=_editLignes.reduce((s,l)=>s+(Number(l.signe)||0),0);
   const bel=document.getElementById('f-budget');
-  if(bel){const dis=has||frozen;bel.disabled=dis;bel.style.background=dis?'#efeee9':'';bel.style.color=dis?'#8a8a86':'';if(has&&!frozen)bel.value=b;}
-  [['f-estime',e],['f-signe',g]].forEach(([id,val])=>{
-    const el=document.getElementById(id);if(!el)return;
-    el.disabled=has;el.style.background=has?'#efeee9':'';el.style.color=has?'#8a8a86':'';
-    if(has)el.value=val;
-  });
-  const hint=document.getElementById('f-lignes-hint');if(hint)hint.style.display=has?'block':'none';
+  if(bel){bel.disabled=frozen;bel.style.background=frozen?'#efeee9':'';bel.style.color=frozen?'#8a8a86':'';}
+  ['f-estime','f-signe'].forEach(id=>{const el=document.getElementById(id);if(el){el.disabled=false;el.style.background='';el.style.color='';}});
+  const hint=document.getElementById('f-lignes-hint');if(hint)hint.style.display=_editLignes.length?'block':'none';
   const banner=document.getElementById('lot-lock-banner');if(banner)banner.style.display=frozen?'block':'none';
 }
 function renderLignesEditor(){
   const wrap=document.getElementById('f-lignes-wrap');if(!wrap)return;
-  const frozen=budgetFrozenNow();
-  const addBtn=document.getElementById('btn-add-ligne');if(addBtn){addBtn.disabled=frozen;addBtn.style.opacity=frozen?'.4':'';addBtn.style.pointerEvents=frozen?'none':'';}
-  if(!_editLignes.length){wrap.innerHTML='<div style="font-size:11px;color:#bbb;padding:2px 0 0">Aucune sous-ligne — budget du lot saisi manuellement ci-dessus.</div>';recomputeLotFromLignes();return;}
-  const head='<div style="display:flex;gap:6px;font-size:10px;color:#b5b5b0;text-transform:uppercase;letter-spacing:.05em;padding:0 2px 4px"><span style="flex:2">Libellé</span><span style="width:72px">Budget</span><span style="width:72px">Devis</span><span style="width:72px">Signé</span><span style="width:20px"></span></div>';
-  const bStyle='width:72px;padding:6px 6px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px';
-  const bStyleFrozen=bStyle+';background:#efeee9;color:#8a8a86';
-  wrap.innerHTML=head+_editLignes.map((l,i)=>'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
-    +'<input type="text" value="'+(l.name||'').replace(/"/g,'&quot;')+'" placeholder="Libellé" '+(frozen?'disabled':'oninput="updateLigne('+i+',\'name\',this.value)"')+' style="flex:2;min-width:0;padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px'+(frozen?';background:#efeee9;color:#8a8a86':'')+'">'
-    +'<input type="number" min="0" value="'+(Number(l.budget)||0)+'" '+(frozen?'disabled style="'+bStyleFrozen+'"':'oninput="updateLigne('+i+',\'budget\',this.value)" style="'+bStyle+'"')+'>'
-    +'<input type="number" min="0" value="'+(Number(l.estime)||0)+'" oninput="updateLigne('+i+',\'estime\',this.value)" style="'+bStyle+'">'
-    +'<input type="number" min="0" value="'+(Number(l.signe)||0)+'" oninput="updateLigne('+i+',\'signe\',this.value)" style="'+bStyle+'">'
-    +(frozen?'<span style="width:20px"></span>':'<button type="button" onclick="removeLigne('+i+')" title="Supprimer" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:14px;width:20px;padding:0">✕</button>')+'</div>').join('');
+  const addBtn=document.getElementById('btn-add-ligne');if(addBtn){addBtn.disabled=false;addBtn.style.opacity='';addBtn.style.pointerEvents='';}
+  if(!_editLignes.length){wrap.innerHTML='<div style="font-size:11px;color:#bbb;padding:2px 0 0">Aucune sous-ligne.</div>';recomputeLotFromLignes();return;}
+  wrap.innerHTML=_editLignes.map((l,i)=>'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+    +'<span style="color:#c7c7c7;flex-shrink:0">↳</span>'
+    +'<input type="text" value="'+(l.name||'').replace(/"/g,'&quot;')+'" placeholder="Détail (sous-ligne, sans budget)" oninput="updateLigne('+i+',\'name\',this.value)" style="flex:1;min-width:0;padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">'
+    +'<button type="button" onclick="removeLigne('+i+')" title="Supprimer" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:14px;width:20px;padding:0">✕</button></div>').join('');
   recomputeLotFromLignes();
 }
-function addLigne(){if(budgetFrozenNow())return;_editLignes.push({name:'',budget:0,estime:0,signe:0});renderLignesEditor();
+function addLigne(){_editLignes.push({name:''});renderLignesEditor();
   const w=document.getElementById('f-lignes-wrap');if(w){const ins=w.querySelectorAll('input[type=text]');if(ins.length)ins[ins.length-1].focus();}}
-function removeLigne(i){if(budgetFrozenNow())return;_editLignes.splice(i,1);renderLignesEditor();}
-function updateLigne(i,f,v){if(!_editLignes[i])return;_editLignes[i][f]=(f==='name')?v:(Number(v)||0);if(f!=='name')recomputeLotFromLignes();}
+function removeLigne(i){_editLignes.splice(i,1);renderLignesEditor();}
+function updateLigne(i,f,v){if(!_editLignes[i])return;_editLignes[i][f]=v;}
 function editLot(id){
   const l=lots.find(x=>x.id===id);if(!l)return;
   document.getElementById('m-lot-title').textContent='Modifier le lot';
@@ -6091,12 +6070,10 @@ function editLot(id){
 }
 function saveLot(){
   const eid=document.getElementById('lot-edit-id').value;
-  const lignes=(_editLignes||[]).filter(l=>(l.name&&l.name.trim())||Number(l.budget)||Number(l.estime)||Number(l.signe)).map(l=>({name:(l.name||'').trim(),budget:Number(l.budget)||0,estime:Number(l.estime)||0,signe:Number(l.signe)||0}));
-  let budget=Number(document.getElementById('f-budget').value)||0;
-  let estime=Number(document.getElementById('f-estime').value)||0;
-  let signe=Number(document.getElementById('f-signe').value)||0;
-  if(lignes.length){budget=lignes.reduce((s,l)=>s+l.budget,0);estime=lignes.reduce((s,l)=>s+l.estime,0);signe=lignes.reduce((s,l)=>s+l.signe,0);}
-  if(eid&&budgetLock&&budgetLock.locked){const cur=lots.find(x=>x.id===Number(eid));if(cur)budget=cur.budget||0;}
+  const lignes=(_editLignes||[]).filter(l=>l.name&&l.name.trim()).map(l=>({name:l.name.trim()}));
+  const budget=Number(document.getElementById('f-budget').value)||0;
+  const estime=Number(document.getElementById('f-estime').value)||0;
+  const signe=Number(document.getElementById('f-signe').value)||0;
   const statut=signe>0?'signe':estime>0?'estime':'budget';
   const data={cat:document.getElementById('f-cat').value,name:document.getElementById('f-name').value.trim(),presta:document.getElementById('f-presta').value,budget,estime,signe,statut,notes:document.getElementById('f-notes').value,resp:document.getElementById('f-resp').value,dateDebut:document.getElementById('f-dateDebut').value,dateFin:document.getElementById('f-dateFin').value,lignes,devisData:pendingLotDevisData,devisFile:pendingLotDevisName};
   if(!data.name)return;
