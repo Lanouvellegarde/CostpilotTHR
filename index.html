@@ -4309,6 +4309,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
       <div class="pg-title">Décaissements</div>
     </div>
     <div class="sect-actions" style="margin-bottom:0">
+      <button class="btn" onclick="openBatchFactures()">⇪ Import en masse</button>
       <button class="btn" onclick="openAddFacture()"> Facture</button>
     </div>
   </div>
@@ -4520,6 +4521,12 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
   </div>
   <div class="fg"><label>Fin prévue</label><input type="date" id="f-dateFin"></div>
   <div class="fg"><label>Notes</label><textarea id="f-notes" rows="2"></textarea></div>
+  <div class="fg"><label>Devis (pièce jointe)</label>
+    <div class="file-drop" onclick="document.getElementById('f-devis-file').click()">
+      <input type="file" id="f-devis-file" style="display:none" onchange="handleLotDevis(this)">
+      <span id="f-devis-list">📎 Joindre un devis</span>
+    </div>
+  </div>
   <div class="modal-footer">
     <button class="btn btn-sm" id="btn-del-lot" style="margin-right:auto;color:#c0392b;border-color:#f5c6c6;display:none" onclick="deleteLot()">🗑 Supprimer</button>
     <button class="btn btn-sm" onclick="closeAll()">Annuler</button>
@@ -4558,7 +4565,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
   </div>
   <div class="fg-row">
     <div class="fg"><label>Montant TTC (€)</label><input id="fac-amt" type="number" min="0" oninput="updateHtPreview()"></div>
-    <div class="fg"><label>TVA (%)</label><input id="fac-tva" type="number" min="0" max="100" value="20" step="1" oninput="updateHtPreview()"><span style="font-size:11px;color:#aaa;margin-top:4px;display:block">Montant HT calculé : <span id="fac-ht-preview">—</span></span></div>
+    <div class="fg"><label>TVA (%)</label><input id="fac-tva" type="number" min="0" max="100" value="10" step="1" oninput="updateHtPreview()"><span style="font-size:11px;color:#aaa;margin-top:4px;display:block">Montant HT calculé : <span id="fac-ht-preview">—</span></span></div>
     <div class="fg"><label>Statut</label>
       <select id="fac-statut">
         <option value="attente">En attente de paiement</option>
@@ -4570,6 +4577,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
     <div class="fg"><label>Date de réception</label><input id="fac-date" type="date"></div>
     <div class="fg"><label>Date prévisionnelle de paiement</label><input id="fac-dateprev" type="date"></div>
   </div>
+  <div class="fg"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500"><input type="checkbox" id="fac-pennylane" style="width:16px;height:16px;accent-color:#6366f1"><span>✓ Validé dans Pennylane</span></label></div>
   <div class="fg">
     <label>Fichier</label>
     <div class="file-drop" onclick="document.getElementById('fac-file').click()">
@@ -4583,6 +4591,32 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
   </div>
 </div></div>
 
+<div class="modal-bg" id="m-batch"><div class="modal" style="width:860px;max-width:95vw">
+  <h3>Import de factures en masse</h3>
+  <p style="font-size:12px;color:#999;margin:-4px 0 14px">Sélectionne plusieurs PDF/images depuis ton ordinateur, définis les valeurs par défaut, puis affecte chaque facture à son lot.</p>
+  <div class="file-drop" onclick="document.getElementById('batch-files').click()">
+    <input type="file" id="batch-files" multiple accept="application/pdf,image/*" style="display:none" onchange="handleBatchFiles(this)">
+    <span>📎 Cliquer pour sélectionner des factures (PDF ou images) — plusieurs à la fois</span>
+  </div>
+  <div style="background:#faf9f7;border:1px solid #ebe9e3;border-radius:8px;padding:10px 12px;margin:12px 0">
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#999;margin-bottom:8px">Valeurs par défaut</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input id="batch-def-presta" type="text" placeholder="Prestataire" style="flex:1;min-width:130px;padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px">
+      <input id="batch-def-date" type="date" style="padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px" title="Date de réception">
+      <input id="batch-def-tva" type="number" min="0" max="100" value="10" style="width:70px;padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px" title="TVA %">
+      <select id="batch-def-statut" style="padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px"><option value="attente">En attente</option><option value="payee">Payée</option></select>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:#555;cursor:pointer"><input type="checkbox" id="batch-def-pl"> Pennylane</label>
+      <button class="btn btn-sm" onclick="batchApplyDefaults()">Appliquer aux lignes</button>
+    </div>
+  </div>
+  <div id="batch-rows" style="max-height:calc(70vh - 240px);overflow-y:auto"></div>
+  <div class="modal-footer">
+    <button class="btn btn-sm" id="btn-del-lot-placeholder" style="margin-right:auto;color:#999;font-size:11px;border:none;background:none" onclick="batchClearAll()">Tout vider</button>
+    <button class="btn btn-sm" onclick="closeAll()">Annuler</button>
+    <button class="btn btn-pri btn-sm" id="batch-import-btn" onclick="saveBatchFactures()">Importer</button>
+  </div>
+</div></div>
+
 <div class="modal-bg" id="m-ts"><div class="modal">
   <h3 id="m-ts-title">Travail supplémentaire</h3>
   <input type="hidden" id="ts-edit-id">
@@ -4590,7 +4624,7 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
   <div class="fg"><label>Lot concerné</label><select id="ts-lot"><option value="1">Dorénavant (archi)</option><option value="2">B3 Designer</option><option value="3">Concessionnaires électricité</option><option value="4">Assurance DO</option><option value="5">Bureau de contrôle / CSPS</option><option value="6">BET éclairage / Lighting</option><option value="7">BET structure</option><option value="9">BET acoustique &amp; aéraulique extraction</option><option value="10">Diagnostic amiante / plomb</option><option value="11">Constat d'Huissier</option><option value="12">Curage démolition nettoyage</option><option value="13">Démolition / gros-œuvre / maçonnerie</option><option value="14">Désamiantage</option><option value="15">Électricité CFA / CFO</option><option value="16">SSI / Sécurité incendie</option><option value="17">Réseaux &amp; Wi-Fi</option><option value="18">Sonorisation</option><option value="19">Plomberie</option><option value="20">Climatisation réversible</option><option value="21">Monte-plats / monte-fûts</option><option value="22">Cuisine / pâtisserie / gros équipements</option><option value="23">Frigoriste / chambre froide</option><option value="24">Bar inox sur mesure</option><option value="25">Équipements bar</option><option value="26">Doublage / cloisons / plâtrerie</option><option value="27">Revêtements durs intérieurs — pose</option><option value="28">Pierre naturelle / marbre</option><option value="29">Agencement menuiserie / miroiterie</option><option value="30">Peinture / enduit déco</option><option value="31">Store extérieur banne</option><option value="32">Mobilier intérieur</option><option value="33">Art de la table</option><option value="34">Luminaire intérieur fixe</option><option value="35">Mobilier terrasse</option><option value="36">Végétation terrasse + intérieur</option><option value="37">Enseigne extérieure</option><option value="38">Tenue staff</option><option value="39">Luminaire à poser</option><option value="40">Machine café (Marzocco)</option><option value="41">Chomette Salle</option><option value="400">Concessionaire eau</option><option value="401">BET acoustique — isolement phonique</option><option value="402">Géomètre</option><option value="403">Couverture</option><option value="404">Gestion lumineuse</option><option value="405">Surveillance caméra</option><option value="406">Luminaire technique</option><option value="407">Piège à son</option><option value="408">Bec de tirage</option><option value="409">Menuiserie extérieur</option><option value="411">Étanchéité</option><option value="412">Petite menuiserie intérieur</option><option value="413">Agencement métallerie / serrurerie</option><option value="414">Papier peint - fourniture</option><option value="415">Ouvrage d'art mosaique</option><option value="416">Rideau</option><option value="418">Porte menu</option><option value="419">Menu</option><option value="420">Déco accessoires — neuf ou vintage + carafe</option><option value="421">Luminaire extérieur</option><option value="422">Signalétique</option><option value="423">Accésoire Sanitaire</option><option value="424">Letrage vitrophanie</option><option value="425">Bâche de chantier</option><option value="426">Coffre fort</option><option value="427">Vestiaire</option><option value="428">Cave à vin</option><option value="429">Dyson</option><option value="430">Chomette Cuisine</option><option value="431">Chomette Patisserie</option><option value="432">Logitrade (papier ing + sous bock + dessus de beurre)</option><option value="433">Ebh (cuillere + fourchette)</option><option value="434">Edzar (Plat inox)</option><option value="435">Stelinox (plateau de service)</option><option value="436">EBH (Verre à Biere)</option><option value="437">Ravinet (verrerie autre)</option><option value="438">Couteaux</option><option value="439">Carafes</option><option value="440">Amazon + autre (cuisine + salle)</option><option value="441">iPad/Ordinateur/Imprimante restaurant / imprimante epson</option><option value="442">Plaque devanture</option><option value="443">Porte manteau</option><option value="444">plaque signalétiques toilettes</option></select></div>
   <div class="fg-row">
     <div class="fg"><label>Montant (€)</label><input id="ts-amt" type="number" min="0"></div>
-    <div class="fg"><label>Statut</label><select id="ts-statut"><option value="cours">En évaluation</option><option value="signe">Accepté</option></select></div>
+    <div class="fg"><label>Statut</label><select id="ts-statut"><option value="cours">En évaluation</option><option value="signe">Accepté</option><option value="valide">Validé</option></select></div>
   </div>
   <div class="fg"><label>Prestataire</label><input id="ts-presta" type="text"></div>
   <div class="modal-footer">
@@ -4741,7 +4775,7 @@ function sbSubscribeProject(projectId,onRemoteChange){
 
 
 const f=n=>n==null||isNaN(n)?'—':Math.round(n).toLocaleString('fr-FR')+'€';
-const ht=fc=>Math.round((fc.amt||0)/(1+((fc.tva??20)/100)));
+const ht=fc=>Math.round((fc.amt||0)/(1+((fc.tva??10)/100)));
 const pct=(a,b)=>b>0?Math.min(100,Math.round(a/b*100)):0;
 
 
@@ -4814,7 +4848,7 @@ const lotFactured=id=>{
     const share=f.lotIds&&f.lotIds.length>1?1/f.lotIds.length:1;
     return a+ht(f)*share;
   },0);
-  const tsHT=tsItems.filter(t=>t.lotId===id&&t.statut==='signe').reduce((a,t)=>a+(t.amt||0),0);
+  const tsHT=tsItems.filter(t=>t.lotId===id&&(t.statut==='signe'||t.statut==='valide')&&!t.factureId).reduce((a,t)=>a+(t.amt||0),0);
   return facHT+tsHT;
 };
 const facStatut={attente:'En attente',partiel:'Part. payée',payee:'Payée'};
@@ -5072,6 +5106,8 @@ function renderDashboard(){
 }
 
 function setSuiviView(v){window._suiviView=v;renderSuivi();}
+function setPlFilter(v){window._plFilter=v;renderSuivi();}
+function _plMatch(fc){const v=window._plFilter||'all';return v==='all'||(v==='yes'?!!fc.pennylane:!fc.pennylane);}
 
 function updateFacStatut(id,val){
   const fc=factures.find(f=>f.id===id);
@@ -5203,6 +5239,16 @@ function renderBudget(){
           </div>
           <button class="lot-edit" onclick="event.stopPropagation();editLot(${lot.id})">✎</button>
         </div>`;
+        (Array.isArray(lot.lignes)?lot.lignes:[]).forEach(sl=>{
+          h+=`<div class="lot-row" style="background:transparent;cursor:pointer;padding-top:6px;padding-bottom:6px" onclick="editLot(${lot.id})">
+            <div style="flex:1;min-width:0"><div class="lot-name" style="padding-left:18px"><span style="color:#c7c7c7;margin-right:6px">↳</span><span class="lot-name-text" style="font-weight:400;color:#777">${sl.name||'—'}</span></div></div>
+            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:#888">${f(sl.budget||0)}</div><div class="lot-amt-l">Budget</div></div>
+            <div class="lot-amt-col" style="width:130px;text-align:center"><div class="lot-amt-v" style="color:#ccc">—</div><div class="lot-amt-l" style="color:#bbb">Devis en cours</div></div>
+            <div class="lot-amt-col"><div class="lot-amt-v" style="font-weight:400;color:${sl.signe?'#16a34a':'#ccc'}">${sl.signe?f(sl.signe):'—'}</div><div class="lot-amt-l">Signé</div></div>
+            <div class="lot-amt-col" style="width:120px"><div class="lot-amt-v" style="color:#ccc">—</div><div class="lot-amt-l"></div></div>
+            <button class="lot-edit" onclick="event.stopPropagation();editLot(${lot.id})" style="opacity:.35">✎</button>
+          </div>`;
+        });
       });
       h+=`</div>`;
     }
@@ -5277,10 +5323,19 @@ function renderSuivi(){
   // Toggle view: prestataire, lot, or synthèse
   const suiviView=window._suiviView||'presta';
 
-  h+=`<div style="display:flex;gap:0;margin-bottom:16px;border:1px solid #ebe9e3;border-radius:8px;overflow:hidden;width:fit-content">
+  const plFilter=window._plFilter||'all';
+  h+=`<div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+    <div style="display:flex;gap:0;border:1px solid #ebe9e3;border-radius:8px;overflow:hidden;width:fit-content">
     <button onclick="setSuiviView('presta')" style="padding:7px 16px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:${suiviView==='presta'?'#1c1c1a':'#fff'};color:${suiviView==='presta'?'#fff':'#888'};transition:all .15s">Par prestataire</button>
     <button onclick="setSuiviView('lot')" style="padding:7px 16px;font-size:12px;font-weight:600;border:none;cursor:pointer;border-left:1px solid #ebe9e3;background:${suiviView==='lot'?'#1c1c1a':'#fff'};color:${suiviView==='lot'?'#fff':'#888'};transition:all .15s">Par lot</button>
     <button onclick="setSuiviView('synth')" style="padding:7px 16px;font-size:12px;font-weight:600;border:none;cursor:pointer;border-left:1px solid #ebe9e3;background:${suiviView==='synth'?'#1c1c1a':'#fff'};color:${suiviView==='synth'?'#fff':'#888'};transition:all .15s">📊 Synthèse</button>
+    </div>
+    <div style="display:flex;gap:0;border:1px solid #ebe9e3;border-radius:8px;overflow:hidden;width:fit-content">
+      <span style="padding:7px 10px;font-size:11px;color:#999;background:#faf9f7;border-right:1px solid #ebe9e3;display:flex;align-items:center">Pennylane</span>
+      <button onclick="setPlFilter('all')" style="padding:7px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:${plFilter==='all'?'#6366f1':'#fff'};color:${plFilter==='all'?'#fff':'#888'}">Tous</button>
+      <button onclick="setPlFilter('yes')" style="padding:7px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;border-left:1px solid #ebe9e3;background:${plFilter==='yes'?'#6366f1':'#fff'};color:${plFilter==='yes'?'#fff':'#888'}">✓ Validé</button>
+      <button onclick="setPlFilter('no')" style="padding:7px 12px;font-size:12px;font-weight:600;border:none;cursor:pointer;border-left:1px solid #ebe9e3;background:${plFilter==='no'?'#6366f1':'#fff'};color:${plFilter==='no'?'#fff':'#888'}">Non validé</button>
+    </div>
   </div>`;
 
   const CAT_COL={'Honoraires':'#6366f1','Travaux':'#3b82f6','Déco':'#ec4899','Technique':'#14b8a6','Technique cuisine & bar froid':'#f97316','FF&E / OS&E':'#8b5cf6','OPS':'#f59e0b','Assurances':'#22c55e'};
@@ -5425,10 +5480,10 @@ function renderSuivi(){
                 </div>
                 <span style="font-size:11px;color:#aaa">${f(lotDec2)} payé · ${f(lotFac2)} facturé</span>
               </div>
-              ${lotFacs.length?lotFacs.map(fc=>`
+              ${lotFacs.filter(_plMatch).length?lotFacs.filter(_plMatch).map(fc=>`
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0 6px 12px;border-bottom:1px solid #faf9f7">
                   <div>
-                    <div style="font-size:12px;font-weight:600;color:#1c1c1a">${fc.num||'Facture'}</div>
+                    <div style="font-size:12px;font-weight:600;color:#1c1c1a">${fc.num||'Facture'}${fc.pennylane?' <span style="font-size:9px;font-weight:700;color:#6366f1;background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;padding:1px 5px;margin-left:4px">PL ✓</span>':''}</div>
                     <div style="font-size:11px;color:#bbb">${fc.dateReception?new Date(fc.dateReception).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):''}</div>
                   </div>
                   <div style="display:flex;align-items:center;gap:8px">
@@ -5515,11 +5570,11 @@ function renderSuivi(){
           </div>
           ${(Array.isArray(lot.lignes)&&lot.lignes.length)?`<div style="margin-top:8px;padding-top:6px;border-top:1px dashed #ebe9e3">${lot.lignes.map(sl=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px"><span style="color:#777"><span style="color:#c7c7c7;margin-right:6px">↳</span>${sl.name||'—'}</span><span style="color:#999">${f(sl.budget||0)} budget${sl.signe?` · <span style="color:#1a7a40">${f(sl.signe)} signé</span>`:''}</span></div>`).join('')}</div>`:''}
           ${hasDetail?`<div class="suivi-detail" style="display:none;margin-top:10px;border-top:1px solid #f5f4f0;padding-top:8px">
-            ${lf.length?`<div style="margin-bottom:6px">
+            ${lf.filter(_plMatch).length?`<div style="margin-bottom:6px">
               <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#bbb;margin-bottom:6px">Factures</div>
-              ${lf.map(fc=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #faf9f7">
+              ${lf.filter(_plMatch).map(fc=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #faf9f7">
                 <div>
-                  <div style="font-size:12px;font-weight:600;color:#1c1c1a">${fc.num||'Facture'}${fc.presta?' <span style="color:#aaa;font-weight:400">· '+fc.presta+'</span>':''}</div>
+                  <div style="font-size:12px;font-weight:600;color:#1c1c1a">${fc.num||'Facture'}${(fc.presta||lot.presta)?' <span style="color:#aaa;font-weight:400">· '+(fc.presta||lot.presta)+'</span>':''}${fc.pennylane?' <span style="font-size:9px;font-weight:700;color:#6366f1;background:#eef2ff;border:1px solid #c7d2fe;border-radius:4px;padding:1px 5px;margin-left:4px">PL ✓</span>':''}</div>
                   <div style="font-size:11px;color:#bbb">${fc.dateReception?new Date(fc.dateReception).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):''}</div>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
@@ -5654,9 +5709,11 @@ function renderTS(){
       <div class="ts-right">
         <div class="ts-amt">${f(t.amt)}</div>
         <div style="margin-top:6px;display:flex;gap:8px;justify-content:flex-end;align-items:center">
-          ${t.statut==='signe'?'<span class="tag tag-signe">Accepté</span>':'<span class="tag tag-cours">En évaluation</span>'}
+          ${t.statut==='valide'?'<span class="tag tag-signe" style="background:#eef2ff;color:#4338ca;border-color:#c7d2fe">Validé</span>':t.statut==='signe'?'<span class="tag tag-signe">Accepté</span>':'<span class="tag tag-cours">En évaluation</span>'}
+          ${t.statut==='valide'?`<button class="btn btn-sm" style="padding:2px 8px;font-size:11px" onclick="addFactureFromTS(${t.id})">${t.factureId?'✓ Facturé':'+ Facture'}</button>`:''}
           <button class="lot-edit" onclick="editTS(${t.id})">✎</button>
         </div>
+        ${t.statut==='valide'&&t.valideAt?`<div style="font-size:10px;color:#8b8b8b;margin-top:4px;text-align:right">Validé le ${new Date(t.valideAt).toLocaleDateString('fr-FR')}${t.validePar?' par '+t.validePar:''}</div>`:''}
       </div>
     </div>`;
   });
@@ -5968,8 +6025,10 @@ function openAddLot(){
   fillRespSelect('f-resp');
   document.getElementById('f-resp').value='';
   ['f-budget','f-estime','f-signe'].forEach(id=>document.getElementById(id).value=0);
+  pendingLotDevisData=null;pendingLotDevisName=null;
   _editLignes=[];
   renderLignesEditor();
+  {const _dl=document.getElementById('f-devis-list');if(_dl)_dl.innerHTML=_devisListHtml();}
   document.getElementById('m-lot').classList.add('on');
 }
 let _editLignes=[];
@@ -6021,6 +6080,8 @@ function editLot(id){
   document.getElementById('f-signe').value=l.signe||0;
   fillRespSelect('f-resp', l.resp);
   document.getElementById('f-notes').value=l.notes||'';
+  pendingLotDevisData=l.devisData||null;pendingLotDevisName=l.devisFile||null;
+  {const _dl=document.getElementById('f-devis-list');if(_dl)_dl.innerHTML=_devisListHtml();}
   document.getElementById('f-dateDebut').value=l.dateDebut||'';
   document.getElementById('f-dateFin').value=l.dateFin||'';
   _editLignes=Array.isArray(l.lignes)?JSON.parse(JSON.stringify(l.lignes)):[];
@@ -6037,7 +6098,7 @@ function saveLot(){
   if(lignes.length){budget=lignes.reduce((s,l)=>s+l.budget,0);estime=lignes.reduce((s,l)=>s+l.estime,0);signe=lignes.reduce((s,l)=>s+l.signe,0);}
   if(eid&&budgetLock&&budgetLock.locked){const cur=lots.find(x=>x.id===Number(eid));if(cur)budget=cur.budget||0;}
   const statut=signe>0?'signe':estime>0?'estime':'budget';
-  const data={cat:document.getElementById('f-cat').value,name:document.getElementById('f-name').value.trim(),presta:document.getElementById('f-presta').value,budget,estime,signe,statut,notes:document.getElementById('f-notes').value,resp:document.getElementById('f-resp').value,dateDebut:document.getElementById('f-dateDebut').value,dateFin:document.getElementById('f-dateFin').value,lignes};
+  const data={cat:document.getElementById('f-cat').value,name:document.getElementById('f-name').value.trim(),presta:document.getElementById('f-presta').value,budget,estime,signe,statut,notes:document.getElementById('f-notes').value,resp:document.getElementById('f-resp').value,dateDebut:document.getElementById('f-dateDebut').value,dateFin:document.getElementById('f-dateFin').value,lignes,devisData:pendingLotDevisData,devisFile:pendingLotDevisName};
   if(!data.name)return;
   if(eid){const l=lots.find(x=>x.id===Number(eid));if(l)Object.assign(l,data);logAudit('Lot modifié',data.name);}else{lots.push({id:nid++,...data});logAudit('Lot ajouté',data.name);}
   closeAll();save();render();
@@ -6081,6 +6142,7 @@ function savePaiement(){
   closeAll();save();render();
 }
 function openAddFacture(prefillLotId){
+  _pendingTSForFacture=null;
   _facLots=(prefillLotId!==undefined&&prefillLotId!==null&&prefillLotId!=='')?[Number(prefillLotId)]:[];
   renderFacLotPicker();
   renderFacChips();
@@ -6090,6 +6152,7 @@ function openAddFacture(prefillLotId){
   document.getElementById('fac-dateprev').value='';
   document.getElementById('fac-statut').value='attente';
   document.getElementById('fac-file-list').textContent='📎 Cliquer pour joindre une facture';pendingFileData=null;
+  var _pl=document.getElementById('fac-pennylane');if(_pl)_pl.checked=false;
   document.getElementById('m-facture').classList.add('on');
 }
 let _facLots=[];
@@ -6102,6 +6165,8 @@ function renderFacLotPicker(){
 function addFacLot(v){
   const id=Number(v);if(!id)return;
   if(!_facLots.includes(id))_facLots.push(id);
+  const pe=document.getElementById('fac-presta');
+  if(pe&&!pe.value.trim()){const l=lots.find(x=>x.id===id);if(l&&l.presta)pe.value=l.presta;}
   renderFacLotPicker();renderFacChips();
 }
 function removeFacLot(id){
@@ -6147,7 +6212,7 @@ function openFile(id){
 
 function updateHtPreview(){
   const amt=Number(document.getElementById('fac-amt').value)||0;
-  const tva=Number(document.getElementById('fac-tva').value)||20;
+  const tva=Number(document.getElementById('fac-tva').value)||10;
   const htVal=Math.round(amt/(1+tva/100));
   const el=document.getElementById('fac-ht-preview');
   if(el)el.textContent=htVal?htVal.toLocaleString('fr-FR')+'€ HT':'—';
@@ -6159,10 +6224,12 @@ function saveFacture(){
   const date=document.getElementById('fac-date').value;
   const datePrev=document.getElementById('fac-dateprev').value;
   const statut=document.getElementById('fac-statut').value;
-  const tva=Number(document.getElementById('fac-tva').value)||20;
+  const tva=Number(document.getElementById('fac-tva').value)||10;
   const lotIds=[..._facLots];
   if(!num||!amt||!date||!lotIds.length)return alert('Merci de remplir le numéro, le montant, la date et sélectionner au moins un lot.');
-  factures.push({id:nid++,num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,file:pendingFile?pendingFile.name:null,fileData:pendingFileData||null});
+  const _newFacId=nid++;
+  factures.push({id:_newFacId,num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane:document.getElementById('fac-pennylane').checked,file:pendingFile?pendingFile.name:null,fileData:pendingFileData||null});
+  if(_pendingTSForFacture){const _t=tsItems.find(x=>x.id===_pendingTSForFacture);if(_t)_t.factureId=_newFacId;_pendingTSForFacture=null;}
   logAudit('Facture déposée',num+' '+f(amt)+' — '+presta);
   pendingFile=null;pendingFileData=null;closeAll();save();render();
 }
@@ -6174,7 +6241,117 @@ function handleFile(inp){
   reader.onload=e=>{pendingFileData=e.target.result;};
   reader.readAsDataURL(pendingFile);
 }
+let pendingLotDevisData=null,pendingLotDevisName=null;
+function _devisListHtml(){
+  if(!pendingLotDevisData)return '📎 Joindre un devis';
+  return '📄 '+(pendingLotDevisName||'devis')+' <span style="color:#3366cc;margin-left:8px;text-decoration:underline" onclick="event.stopPropagation();openLotDevis()">voir</span> <span style="color:#c0392b;margin-left:6px" onclick="event.stopPropagation();clearLotDevis()">retirer</span>';
+}
+function handleLotDevis(inp){
+  if(!inp.files.length)return;
+  pendingLotDevisName=inp.files[0].name;
+  const reader=new FileReader();
+  reader.onload=e=>{pendingLotDevisData=e.target.result;document.getElementById('f-devis-list').innerHTML=_devisListHtml();};
+  reader.readAsDataURL(inp.files[0]);
+}
+function clearLotDevis(){pendingLotDevisData=null;pendingLotDevisName=null;const el=document.getElementById('f-devis-list');if(el)el.innerHTML=_devisListHtml();}
+function openLotDevis(){
+  if(!pendingLotDevisData)return;
+  const w=window.open();
+  if(w){w.document.write(pendingLotDevisData.startsWith('data:application/pdf')?`<iframe src="${pendingLotDevisData}" style="width:100%;height:100%;border:none"></iframe>`:`<img src="${pendingLotDevisData}" style="max-width:100%">`);}
+}
 
+let _pendingTSForFacture=null;
+function addFactureFromTS(tsId){
+  const t=tsItems.find(x=>x.id===tsId);if(!t)return;
+  openAddFacture(t.lotId);
+  _pendingTSForFacture=tsId;
+  const p=document.getElementById('fac-presta');if(p)p.value=t.presta||'';
+  const a=document.getElementById('fac-amt');if(a){a.value=t.amt||'';updateHtPreview();}
+  const n=document.getElementById('fac-num');if(n&&!n.value)n.value='TS · '+(t.name?t.name.slice(0,24):tsId);
+}
+let _batchRows=[];
+function _batchLotOptions(sel){
+  return '<option value="">— Affecter un lot —</option>'+lots.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'')).map(l=>`<option value="${l.id}" ${Number(sel)===l.id?'selected':''}>${l.name}</option>`).join('');
+}
+function _batchDefaults(){
+  return {
+    presta:(document.getElementById('batch-def-presta')||{}).value||'',
+    date:(document.getElementById('batch-def-date')||{}).value||'',
+    tva:Number((document.getElementById('batch-def-tva')||{}).value)||10,
+    statut:(document.getElementById('batch-def-statut')||{}).value||'attente',
+    pennylane:!!(document.getElementById('batch-def-pl')||{}).checked
+  };
+}
+function openBatchFactures(){
+  _batchRows=[];
+  const t=new Date().toISOString().slice(0,10);
+  const set=(id,v)=>{const el=document.getElementById(id);if(el){if(el.type==='checkbox')el.checked=v;else el.value=v;}};
+  set('batch-def-presta','');set('batch-def-date',t);set('batch-def-tva',10);set('batch-def-statut','attente');set('batch-def-pl',false);set('batch-files','');
+  renderBatchRows();
+  document.getElementById('m-batch').classList.add('on');
+}
+function handleBatchFiles(inp){
+  if(!inp.files||!inp.files.length)return;
+  const d=_batchDefaults();
+  const files=[...inp.files];
+  let pending=files.length;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      _batchRows.push({fileName:file.name,fileData:e.target.result,num:'',presta:d.presta,amt:'',date:d.date,tva:d.tva,statut:d.statut,lotId:'',pennylane:d.pennylane});
+      if(--pending<=0)renderBatchRows();
+    };
+    reader.onerror=()=>{if(--pending<=0)renderBatchRows();};
+    reader.readAsDataURL(file);
+  });
+  inp.value='';
+}
+function renderBatchRows(){
+  const wrap=document.getElementById('batch-rows');if(!wrap)return;
+  const btn=document.getElementById('batch-import-btn');if(btn)btn.textContent='Importer'+(_batchRows.length?' ('+_batchRows.length+')':'');
+  if(!_batchRows.length){wrap.innerHTML='<div style="text-align:center;color:#bbb;font-size:12px;padding:24px 0">Aucun fichier sélectionné.</div>';return;}
+  const ip='padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px';
+  wrap.innerHTML=_batchRows.map((r,i)=>'<div style="border:1px solid #ebe9e3;border-radius:8px;padding:10px;margin-bottom:8px">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+    +'<span style="font-size:12px;font-weight:600;color:#555">📄 '+(r.fileName||'fichier').replace(/</g,'&lt;')+' <span onclick="batchView('+i+')" style="color:#3366cc;text-decoration:underline;cursor:pointer;font-weight:400;margin-left:6px">voir</span></span>'
+    +'<button onclick="batchRemove('+i+')" title="Retirer" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:14px">✕</button></div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'
+    +'<input placeholder="N° facture" value="'+(r.num||'').replace(/"/g,'&quot;')+'" oninput="batchUpd('+i+',\'num\',this.value)" style="flex:1;min-width:110px;'+ip+'">'
+    +'<input placeholder="Prestataire" value="'+(r.presta||'').replace(/"/g,'&quot;')+'" oninput="batchUpd('+i+',\'presta\',this.value)" style="flex:1;min-width:110px;'+ip+'">'
+    +'<input type="number" min="0" placeholder="TTC €" value="'+(r.amt||'')+'" oninput="batchUpd('+i+',\'amt\',this.value)" style="width:100px;'+ip+'">'
+    +'<input type="number" min="0" max="100" value="'+(r.tva!=null?r.tva:10)+'" title="TVA %" oninput="batchUpd('+i+',\'tva\',this.value)" style="width:64px;'+ip+'">'
+    +'<input type="date" value="'+(r.date||'')+'" oninput="batchUpd('+i+',\'date\',this.value)" style="width:140px;'+ip+'">'
+    +'<select onchange="batchUpd('+i+',\'lotId\',this.value)" style="min-width:170px;'+ip+'">'+_batchLotOptions(r.lotId)+'</select>'
+    +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:#666"><input type="checkbox" '+(r.pennylane?'checked':'')+' onchange="batchUpd('+i+',\'pennylane\',this.checked)"> PL</label>'
+    +'</div></div>').join('');
+}
+function batchUpd(i,f,v){if(!_batchRows[i])return;_batchRows[i][f]=(f==='pennylane')?!!v:v;}
+function batchRemove(i){_batchRows.splice(i,1);renderBatchRows();}
+function batchClearAll(){_batchRows=[];renderBatchRows();}
+function batchApplyDefaults(){
+  const d=_batchDefaults();
+  _batchRows.forEach(r=>{if(!r.presta)r.presta=d.presta;if(!r.date)r.date=d.date;r.tva=d.tva;r.statut=d.statut;r.pennylane=d.pennylane;});
+  renderBatchRows();
+}
+function batchView(i){
+  const r=_batchRows[i];if(!r||!r.fileData)return;
+  const w=window.open();
+  if(w)w.document.write(r.fileData.startsWith('data:application/pdf')?'<iframe src="'+r.fileData+'" style="width:100%;height:100%;border:none"></iframe>':'<img src="'+r.fileData+'" style="max-width:100%">');
+}
+function saveBatchFactures(){
+  const d=_batchDefaults();
+  let created=0,skipped=0;
+  _batchRows.forEach(r=>{
+    const amt=Number(r.amt)||0;const date=r.date||d.date;const lotId=Number(r.lotId);
+    if(!amt||!date||!lotId){skipped++;return;}
+    factures.push({id:nid++,num:r.num||'',presta:r.presta||d.presta||'',lotIds:[lotId],amt,tva:Number(r.tva)||d.tva||10,dateReception:date,datePrevPaiement:'',statut:r.statut||d.statut||'attente',pennylane:!!r.pennylane,file:r.fileName||null,fileData:r.fileData||null});
+    created++;
+  });
+  if(!created){alert('Aucune facture importée. Chaque ligne doit avoir un montant, une date et un lot affecté.');return;}
+  logAudit('Import factures en masse',created+' facture(s)');
+  closeAll();save();render();
+  if(skipped)setTimeout(()=>alert(created+' facture(s) importée(s).\n'+skipped+' ligne(s) ignorée(s) : montant, date ou lot manquant.'),120);
+}
 function openAddTS(){
   fillLotSelects();
   document.getElementById('m-ts-title').textContent='Travail supplémentaire';
@@ -6200,9 +6377,26 @@ function editTS(id){
 }
 function saveTS(){
   const eid=document.getElementById('ts-edit-id').value;
-  const data={name:document.getElementById('ts-name').value.trim(),lotId:Number(document.getElementById('ts-lot').value),amt:Number(document.getElementById('ts-amt').value)||0,statut:document.getElementById('ts-statut').value,presta:document.getElementById('ts-presta').value};
+  const newStatut=document.getElementById('ts-statut').value;
+  const data={name:document.getElementById('ts-name').value.trim(),lotId:Number(document.getElementById('ts-lot').value),amt:Number(document.getElementById('ts-amt').value)||0,statut:newStatut,presta:document.getElementById('ts-presta').value};
   if(!data.name)return;
-  if(eid){const t=tsItems.find(x=>x.id===Number(eid));if(t)Object.assign(t,data);}else tsItems.push({id:nid++,...data});
+  const who=(typeof currentUser!=='undefined'&&currentUser)?currentUser.name:'?';
+  if(eid){
+    const t=tsItems.find(x=>x.id===Number(eid));
+    if(t){
+      if(t.statut==='valide'&&newStatut!=='valide'&&!isAdminUser()){alert("Seul un administrateur peut retirer la validation d'un TS.");return;}
+      if(newStatut==='valide'&&t.statut!=='valide'){data.validePar=who;data.valideAt=new Date().toISOString();}
+      else if(newStatut==='valide'){data.validePar=t.validePar||who;data.valideAt=t.valideAt||new Date().toISOString();}
+      else{data.validePar=null;data.valideAt=null;}
+      data.factureId=t.factureId;
+      Object.assign(t,data);
+      logAudit('TS modifié',data.name+(newStatut==='valide'?' — validé':''));
+    }
+  }else{
+    if(newStatut==='valide'){data.validePar=who;data.valideAt=new Date().toISOString();}
+    tsItems.push({id:nid++,...data});
+    logAudit('TS ajouté',data.name);
+  }
   closeAll();save();render();
 }
 function deleteTS(){
