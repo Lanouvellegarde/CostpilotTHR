@@ -4554,7 +4554,8 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
 </div></div>
 
 <div class="modal-bg" id="m-facture"><div class="modal" style="width:560px">
-  <h3>Facture</h3>
+  <h3 id="m-fac-title">Facture</h3>
+  <input type="hidden" id="fac-edit-id">
   <div class="fg-row">
     <div class="fg"><label>Prestataire</label><input id="fac-presta" type="text" placeholder="Nom de l'entreprise"></div>
     <div class="fg"><label>N° facture</label><input id="fac-num" type="text" placeholder="FAC-2026-XXX"></div>
@@ -5494,6 +5495,7 @@ function renderSuivi(){
                       <option value="payee" ${fc.statut==='payee'?'selected':''}>✓ Payée</option>
                     </select>
                     ${fc.fileData?`<button onclick="openFile(${fc.id})" title="Voir la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#3366cc;font-size:12px">📄</button>`:''}
+                  <button onclick="editFacture(${fc.id})" title="Modifier la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#888;font-size:12px">⚙️</button>
                   <button onclick="deleteFacture(${fc.id},this)" data-confirm="" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:13px" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#ddd'">🗑</button>
                   </div>
                 </div>`).join(''):`<div style="font-size:11px;color:#ccc;padding:6px 0 6px 12px">Aucune facture</div>`}
@@ -5588,6 +5590,7 @@ function renderSuivi(){
                     <option value="payee" ${fc.statut==='payee'?'selected':''}>✓ Payée</option>
                   </select>
                   ${fc.fileData?`<button onclick="openFile(${fc.id})" title="Voir la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#3366cc;font-size:12px">📄</button>`:''}
+                  <button onclick="editFacture(${fc.id})" title="Modifier la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#888;font-size:12px">⚙️</button>
                   <button onclick="deleteFacture(${fc.id},this)" data-confirm="" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:13px" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#ddd'">🗑</button>
                 </div>
               </div>`).join('')}
@@ -6163,6 +6166,35 @@ function openAddFacture(prefillLotId){
   document.getElementById('fac-statut').value='attente';
   document.getElementById('fac-file-list').textContent='📎 Cliquer pour joindre une facture';pendingFileData=null;
   var _pl=document.getElementById('fac-pennylane');if(_pl)_pl.checked=false;
+  document.getElementById('fac-edit-id').value='';
+  document.getElementById('m-fac-title').textContent='Facture';
+  _facExtraBlockDisplay(true);
+  document.getElementById('m-facture').classList.add('on');
+}
+function _facExtraBlockDisplay(show){
+  const w=document.getElementById('fac-extra-wrap');if(!w)return;
+  const block=w.parentElement;if(block)block.style.display=show?'':'none';
+}
+function editFacture(id){
+  const fc=factures.find(x=>x.id===id);if(!fc)return;
+  _pendingTSForFacture=null;
+  _extraFacs=[];renderExtraFacs();
+  _facLots=[...(fc.lotIds||(fc.lotId!=null?[fc.lotId]:[]))];
+  renderFacLotPicker();renderFacChips();
+  document.getElementById('fac-num').value=fc.num||'';
+  document.getElementById('fac-presta').value=fc.presta||'';
+  document.getElementById('fac-amt').value=fc.amt||'';
+  document.getElementById('fac-tva').value=(fc.tva!=null?fc.tva:10);
+  document.getElementById('fac-date').value=fc.dateReception||'';
+  document.getElementById('fac-dateprev').value=fc.datePrevPaiement||'';
+  document.getElementById('fac-statut').value=fc.statut||'attente';
+  const pl=document.getElementById('fac-pennylane');if(pl)pl.checked=!!fc.pennylane;
+  pendingFile=null;pendingFileData=fc.fileData||null;
+  document.getElementById('fac-file-list').textContent=fc.file?('📄 '+fc.file+' (cliquer pour remplacer)'):'📎 Cliquer pour joindre une facture';
+  document.getElementById('fac-edit-id').value=id;
+  document.getElementById('m-fac-title').textContent='Modifier la facture';
+  _facExtraBlockDisplay(false);
+  updateHtPreview();
   document.getElementById('m-facture').classList.add('on');
 }
 let _facLots=[];
@@ -6237,6 +6269,19 @@ function saveFacture(){
   const tva=Number(document.getElementById('fac-tva').value)||10;
   const lotIds=[..._facLots];
   if(!num||!amt||!date||!lotIds.length)return alert('Merci de remplir le numéro, le montant, la date et sélectionner au moins un lot.');
+  const _editId=document.getElementById('fac-edit-id').value;
+  if(_editId){
+    const fc=factures.find(x=>x.id===Number(_editId));
+    if(fc){
+      const keepFile=!pendingFile;
+      Object.assign(fc,{num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,
+        pennylane:document.getElementById('fac-pennylane').checked,
+        file:pendingFile?pendingFile.name:(keepFile?fc.file:null),
+        fileData:pendingFileData||(keepFile?fc.fileData:null)});
+      logAudit('Facture modifiée',num+' '+f(amt)+' — '+presta);
+    }
+    _extraFacs=[];pendingFile=null;pendingFileData=null;closeAll();save();render();return;
+  }
   const _newFacId=nid++;
   factures.push({id:_newFacId,num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane:document.getElementById('fac-pennylane').checked,file:pendingFile?pendingFile.name:null,fileData:pendingFileData||null});
   if(_pendingTSForFacture){const _t=tsItems.find(x=>x.id===_pendingTSForFacture);if(_t)_t.factureId=_newFacId;_pendingTSForFacture=null;}
