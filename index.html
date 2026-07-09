@@ -4585,6 +4585,14 @@ nav{background:#fff;border-bottom:1px solid #ebe9e3;display:flex;align-items:cen
       <span id="fac-file-list">📎 Cliquer pour joindre une facture</span>
     </div>
   </div>
+  <div class="fg" style="border-top:1px solid #ebe9e3;padding-top:14px;margin-top:6px">
+    <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span>Autres factures (même lot / même prestataire)</span>
+      <button type="button" class="btn btn-sm" onclick="addExtraFac()" style="padding:3px 10px;font-size:12px">+ Ajouter une facture</button>
+    </label>
+    <div id="fac-extra-wrap"></div>
+    <div id="fac-extra-hint" style="font-size:11px;color:#999;margin-top:8px;display:none">Ces factures reprendront le prestataire, les lots, la TVA, le statut, les dates et Pennylane ci-dessus.</div>
+  </div>
   <div class="modal-footer">
     <button class="btn btn-sm" onclick="closeAll()">Annuler</button>
     <button class="btn btn-pri btn-sm" onclick="saveFacture()">Enregistrer</button>
@@ -6118,8 +6126,33 @@ function savePaiement(){
   logAudit('Paiement ajouté',label+' '+f(amt));
   closeAll();save();render();
 }
+let _extraFacs=[];
+function renderExtraFacs(){
+  const wrap=document.getElementById('fac-extra-wrap');if(!wrap)return;
+  const hint=document.getElementById('fac-extra-hint');if(hint)hint.style.display=_extraFacs.length?'block':'none';
+  if(!_extraFacs.length){wrap.innerHTML='<div style="font-size:11px;color:#bbb">Une seule facture pour l\'instant.</div>';return;}
+  const ip='padding:6px 8px;border:1px solid #e5e3dd;border-radius:6px;font-size:12px';
+  wrap.innerHTML=_extraFacs.map((r,i)=>'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+    +'<input type="text" placeholder="N° facture" value="'+(r.num||'').replace(/"/g,'&quot;')+'" oninput="updExtraFac('+i+',\'num\',this.value)" style="flex:1;min-width:0;'+ip+'">'
+    +'<input type="number" min="0" placeholder="TTC €" value="'+(r.amt||'')+'" oninput="updExtraFac('+i+',\'amt\',this.value)" style="width:104px;'+ip+'">'
+    +'<label title="Joindre un fichier" style="flex-shrink:0;cursor:pointer;font-size:11px;color:'+(r.fileData?'#16a34a':'#3366cc')+';text-decoration:underline;white-space:nowrap">'
+    +(r.fileData?'📄 joint':'📎 fichier')
+    +'<input type="file" accept="application/pdf,image/*" style="display:none" onchange="handleExtraFacFile('+i+',this)"></label>'
+    +'<button type="button" onclick="removeExtraFac('+i+')" title="Retirer" style="border:none;background:none;color:#c0392b;cursor:pointer;font-size:14px;width:20px;padding:0">✕</button></div>').join('');
+}
+function addExtraFac(){_extraFacs.push({num:'',amt:'',fileName:null,fileData:null});renderExtraFacs();}
+function removeExtraFac(i){_extraFacs.splice(i,1);renderExtraFacs();}
+function updExtraFac(i,f,v){if(_extraFacs[i])_extraFacs[i][f]=v;}
+function handleExtraFacFile(i,inp){
+  if(!inp.files||!inp.files.length||!_extraFacs[i])return;
+  const file=inp.files[0];
+  const reader=new FileReader();
+  reader.onload=e=>{_extraFacs[i].fileName=file.name;_extraFacs[i].fileData=e.target.result;renderExtraFacs();};
+  reader.readAsDataURL(file);
+}
 function openAddFacture(prefillLotId){
   _pendingTSForFacture=null;
+  _extraFacs=[];renderExtraFacs();
   _facLots=(prefillLotId!==undefined&&prefillLotId!==null&&prefillLotId!=='')?[Number(prefillLotId)]:[];
   renderFacLotPicker();
   renderFacChips();
@@ -6207,8 +6240,18 @@ function saveFacture(){
   const _newFacId=nid++;
   factures.push({id:_newFacId,num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane:document.getElementById('fac-pennylane').checked,file:pendingFile?pendingFile.name:null,fileData:pendingFileData||null});
   if(_pendingTSForFacture){const _t=tsItems.find(x=>x.id===_pendingTSForFacture);if(_t)_t.factureId=_newFacId;_pendingTSForFacture=null;}
-  logAudit('Facture déposée',num+' '+f(amt)+' — '+presta);
+  const pl=document.getElementById('fac-pennylane').checked;
+  let extras=0,skipped=0;
+  (_extraFacs||[]).forEach(r=>{
+    const eAmt=Number(r.amt)||0;const eNum=(r.num||'').trim();
+    if(!eNum||!eAmt){if(eNum||eAmt)skipped++;return;}
+    factures.push({id:nid++,num:eNum,presta,lotIds:[...lotIds],amt:eAmt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane:pl,file:r.fileName||null,fileData:r.fileData||null});
+    extras++;
+  });
+  logAudit('Facture déposée',num+' '+f(amt)+' — '+presta+(extras?' (+'+extras+' autre(s))':''));
+  _extraFacs=[];
   pendingFile=null;pendingFileData=null;closeAll();save();render();
+  if(skipped)setTimeout(()=>alert(skipped+' facture(s) supplémentaire(s) ignorée(s) : numéro ou montant manquant.'),120);
 }
 function handleFile(inp){
   if(!inp.files.length)return;
