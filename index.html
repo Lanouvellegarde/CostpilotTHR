@@ -5438,7 +5438,7 @@ function renderSuivi(){
       });
     });
     Object.values(prestaMap).forEach(g=>{g.signe=g.lots.reduce((a,l)=>a+(l.signe||0),0);});
-    const prestaGroups=Object.values(prestaMap).sort((a,b)=>b.fac-a.fac);
+    const prestaGroups=Object.values(prestaMap).sort((a,b)=>(a.presta||'').localeCompare(b.presta||'','fr',{sensitivity:'base'}));
 
     prestaGroups.forEach(grp=>{
       const engage=Math.max(0,grp.fac-grp.dec);
