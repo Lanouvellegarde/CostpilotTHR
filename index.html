@@ -4667,6 +4667,86 @@ const _sbHeaders={
   'Authorization':'Bearer '+SUPABASE_ANON_KEY,
   'Content-Type':'application/json'
 };
+// ---- Factures : stockées dans une table dédiée (1 ligne/facture), pas dans le bloc projet ----
+function _rowToFac(r){
+  let li=r.lot_ids;if(typeof li==='string'){try{li=JSON.parse(li);}catch(e){li=[];}}
+  return {id:r.id,num:r.num||'',presta:r.presta||'',lotIds:Array.isArray(li)?li:[],amt:Number(r.amt)||0,tva:(r.tva!=null?Number(r.tva):10),statut:r.statut||'attente',dateReception:r.date_reception||'',datePrevPaiement:r.date_prev||'',pennylane:!!r.pennylane,tsId:r.ts_id||null,file:r.file_name||null,fileData:(r.file_data!==undefined?r.file_data:null)};
+}
+function _facToRow(f,pid,withFile){
+  const r={project_id:pid,num:f.num||'',presta:f.presta||'',lot_ids:f.lotIds||[],amt:Number(f.amt)||0,tva:Number(f.tva)||10,statut:f.statut||'attente',date_reception:f.dateReception||null,date_prev:f.datePrevPaiement||null,pennylane:!!f.pennylane,ts_id:f.tsId||null,updated_at:new Date().toISOString()};
+  if(withFile){r.file_name=f.file||null;r.file_data=f.fileData||null;}
+  return r;
+}
+// Liste allégée (sans file_data) pour rester rapide même à gros volume
+const _FAC_COLS='id,num,presta,lot_ids,amt,tva,statut,date_reception,date_prev,pennylane,ts_id,file_name,file_data,created_at';
+async function sbLoadFactures(pid){
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/factures?project_id=eq.'+pid+'&select='+_FAC_COLS+'&order=created_at.asc',{headers:_sbHeaders});
+    if(!res.ok)return null;
+    return (await res.json()).map(_rowToFac);
+  }catch(e){return null;}
+}
+function _dataURItoBlob(dataURI){
+  const parts=dataURI.split(',');const meta=parts[0]||'';const b64=parts[1]||'';
+  const mime=(meta.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+  const bin=atob(b64);const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+async function sbUploadFacFile(dataURI,name){
+  const blob=_dataURItoBlob(dataURI);
+  const ext=(name&&name.includes('.'))?name.split('.').pop().toLowerCase().replace(/[^a-z0-9]/g,''):'pdf';
+  const path=(currentProject||0)+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
+  const res=await fetch(SUPABASE_URL+'/storage/v1/object/factures/'+path,{method:'POST',headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY,'Content-Type':blob.type,'x-upsert':'true'},body:blob});
+  if(!res.ok)throw new Error('upload storage '+res.status+' '+(await res.text()));
+  return SUPABASE_URL+'/storage/v1/object/public/factures/'+path;
+}
+async function _ensureFileUploaded(f){
+  if(f&&typeof f.fileData==='string'&&f.fileData.startsWith('data:')){
+    f.fileData=await sbUploadFacFile(f.fileData,f.file);
+  }
+}
+async function sbDeleteFacFile(url){
+  if(!url||typeof url!=='string'||url.indexOf('/storage/v1/object/public/factures/')<0)return;
+  const path=url.split('/storage/v1/object/public/factures/')[1];
+  try{await fetch(SUPABASE_URL+'/storage/v1/object/factures/'+path,{method:'DELETE',headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY}});}catch(e){}
+}
+async function sbInsertFacture(f,pid){
+  await _ensureFileUploaded(f);
+  const res=await fetch(SUPABASE_URL+'/rest/v1/factures',{method:'POST',headers:{..._sbHeaders,'Prefer':'return=representation'},body:JSON.stringify(_facToRow(f,pid,true))});
+  if(!res.ok)throw new Error('insert '+res.status+' '+(await res.text()));
+  const rows=await res.json();const fc=_rowToFac(rows[0]);fc.fileData=f.fileData||null;return fc;
+}
+async function sbUpdateFacture(f,pid,withFile){
+  if(withFile)await _ensureFileUploaded(f);
+  const res=await fetch(SUPABASE_URL+'/rest/v1/factures?id=eq.'+f.id,{method:'PATCH',headers:{..._sbHeaders,'Prefer':'return=representation'},body:JSON.stringify(_facToRow(f,pid,withFile))});
+  if(!res.ok)throw new Error('update '+res.status+' '+(await res.text()));
+  return true;
+}
+async function sbDeleteFacture(id){
+  try{const res=await fetch(SUPABASE_URL+'/rest/v1/factures?id=eq.'+id,{method:'DELETE',headers:_sbHeaders});return res.ok;}catch(e){return false;}
+}
+async function sbFetchFactureFile(id){
+  try{const res=await fetch(SUPABASE_URL+'/rest/v1/factures?id=eq.'+id+'&select=file_data',{headers:_sbHeaders});const rows=await res.json();return rows[0]?rows[0].file_data:null;}catch(e){return null;}
+}
+// Rafraîchit les factures du projet courant depuis la table (léger, sans les PDF)
+let _facSig=null;
+async function refreshFactures(pid){
+  const ff=await sbLoadFactures(pid);
+  if(ff){factures=ff;return true;}
+  return false;
+}
+async function _facPollTick(){
+  if(typeof currentProject==='undefined'||currentProject==null)return;
+  try{
+    const res=await fetch(SUPABASE_URL+'/rest/v1/factures?project_id=eq.'+currentProject+'&select=id,updated_at',{headers:_sbHeaders});
+    if(!res.ok)return;
+    const rows=await res.json();
+    const sig=currentProject+'|'+rows.length+'|'+(rows.map(r=>r.updated_at).sort().slice(-1)[0]||'');
+    if(sig!==_facSig){_facSig=sig;const ff=await sbLoadFactures(currentProject);if(ff){factures=ff;if(!window._sbApplyingRemote)render();}}
+  }catch(e){}
+}
+setInterval(_facPollTick,5000);
 
 function sbInit(){
   // No external SDK needed — using the REST API directly via fetch().
@@ -4820,7 +4900,7 @@ function loadData(){
   try{
     const d=JSON.parse(_lsGet('romeo3'));
     if(d&&d.lots&&d.lots.length>0){
-      lots=d.lots;paiements=d.paiements||[];factures=d.factures||[];tsItems=d.tsItems||[];nid=d.nid||400;
+      lots=d.lots;paiements=d.paiements||[];tsItems=d.tsItems||[];factures=[];nid=d.nid||400;
     }
     // else: keep source data as-is
   }catch(e){}
@@ -4833,10 +4913,11 @@ async function loadDataFromSupabase(projectId){
   const remote=await sbLoadProject(projectId);
   if(remote&&remote.lots){
     lots=remote.lots||[];paiements=remote.paiements||[];
-    factures=remote.factures||[];tsItems=remote.tsItems||[];
+    tsItems=remote.tsItems||[];
     if(remote.projet)Object.assign(projet,remote.projet);
     if(remote.budgetLock)budgetLock=remote.budgetLock;
-    nid=remote.nid||Math.max(1,...[...lots,...paiements,...factures,...tsItems].map(x=>x.id+1),200);
+    nid=remote.nid||Math.max(1,...[...lots,...paiements,...tsItems].map(x=>x.id+1),200);
+    const _ff=await sbLoadFactures(projectId);factures=_ff||[];
     return true;
   }
   return false;
@@ -5119,7 +5200,7 @@ function updateFacStatut(id,val){
   const fc=factures.find(f=>f.id===id);
   if(fc){fc.statut=val;logAudit('Facture '+val,fc.num);save();render();}
 }
-function deleteFacture(id,btn){
+async function deleteFacture(id,btn){
   if(btn.dataset.confirm!=='yes'){
     btn.textContent='⚠ Confirmer';
     btn.dataset.confirm='yes';
@@ -5127,9 +5208,13 @@ function deleteFacture(id,btn){
     return;
   }
   const fc=factures.find(f=>f.id===id);
+  if(fc&&fc.fileData)sbDeleteFacFile(fc.fileData);
+  await sbDeleteFacture(id);
   factures=factures.filter(f=>f.id!==id);
+  let tsChanged=false;tsItems.forEach(t=>{if(t.factureId===id){t.factureId=null;tsChanged=true;}});
   logAudit('Facture supprimée',fc?fc.num:'');
-  save();render();
+  if(tsChanged)save();
+  render();
 }
 function toggleSuivi(header){
   const card=header.closest('.suivi-card');
@@ -5494,7 +5579,7 @@ function renderSuivi(){
                       <option value="attente" ${fc.statut!=='payee'?'selected':''}>En attente</option>
                       <option value="payee" ${fc.statut==='payee'?'selected':''}>✓ Payée</option>
                     </select>
-                    ${fc.fileData?`<button onclick="openFile(${fc.id})" title="Voir la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#3366cc;font-size:12px">📄</button>`:''}
+                    ${fc.file?`<button onclick="openFile(${fc.id})" title="Voir la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#3366cc;font-size:12px">📄</button>`:''}
                   <button onclick="editFacture(${fc.id})" title="Modifier la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#888;font-size:12px">⚙️</button>
                   <button onclick="deleteFacture(${fc.id},this)" data-confirm="" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:13px" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#ddd'">🗑</button>
                   </div>
@@ -5589,7 +5674,7 @@ function renderSuivi(){
                     <option value="attente" ${fc.statut!=='payee'?'selected':''}>En attente</option>
                     <option value="payee" ${fc.statut==='payee'?'selected':''}>✓ Payée</option>
                   </select>
-                  ${fc.fileData?`<button onclick="openFile(${fc.id})" title="Voir la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#3366cc;font-size:12px">📄</button>`:''}
+                  ${fc.file?`<button onclick="openFile(${fc.id})" title="Voir la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#3366cc;font-size:12px">📄</button>`:''}
                   <button onclick="editFacture(${fc.id})" title="Modifier la facture" style="background:none;border:1px solid #e5e3dd;border-radius:5px;padding:3px 8px;cursor:pointer;color:#888;font-size:12px">⚙️</button>
                   <button onclick="deleteFacture(${fc.id},this)" data-confirm="" style="background:none;border:none;cursor:pointer;color:#ddd;font-size:13px" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#ddd'">🗑</button>
                 </div>
@@ -6224,9 +6309,11 @@ function renderFacChips(){
   }).join('');
 }
 
-function openFile(id){
+async function openFile(id){
   const fc=factures.find(f=>f.id===id);
-  if(!fc||!fc.fileData){alert('Aucun fichier joint');return;}
+  if(!fc){alert('Facture introuvable');return;}
+  if(!fc.fileData){const d=await sbFetchFactureFile(id);if(d)fc.fileData=d;}
+  if(!fc.fileData){alert('Aucun fichier joint');return;}
   let modal=document.getElementById('file-preview-modal');
   if(!modal){
     modal=document.createElement('div');
@@ -6259,7 +6346,7 @@ function updateHtPreview(){
   const el=document.getElementById('fac-ht-preview');
   if(el)el.textContent=htVal?htVal.toLocaleString('fr-FR')+'€ HT':'—';
 }
-function saveFacture(){
+async function saveFacture(){
   const num=document.getElementById('fac-num').value;
   const presta=document.getElementById('fac-presta').value;
   const amt=Number(document.getElementById('fac-amt').value)||0;
@@ -6267,36 +6354,41 @@ function saveFacture(){
   const datePrev=document.getElementById('fac-dateprev').value;
   const statut=document.getElementById('fac-statut').value;
   const tva=Number(document.getElementById('fac-tva').value)||10;
+  const pennylane=document.getElementById('fac-pennylane').checked;
   const lotIds=[..._facLots];
   if(!num||!amt||!date||!lotIds.length)return alert('Merci de remplir le numéro, le montant, la date et sélectionner au moins un lot.');
+  const pid=currentProject;
   const _editId=document.getElementById('fac-edit-id').value;
-  if(_editId){
-    const fc=factures.find(x=>x.id===Number(_editId));
-    if(fc){
-      const keepFile=!pendingFile;
-      Object.assign(fc,{num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,
-        pennylane:document.getElementById('fac-pennylane').checked,
-        file:pendingFile?pendingFile.name:(keepFile?fc.file:null),
-        fileData:pendingFileData||(keepFile?fc.fileData:null)});
-      logAudit('Facture modifiée',num+' '+f(amt)+' — '+presta);
+  const btn=document.querySelector('#m-facture .btn-pri');if(btn){btn.disabled=true;btn.textContent='Enregistrement…';}
+  try{
+    if(_editId){
+      const fc=factures.find(x=>String(x.id)===String(_editId));
+      if(fc){
+        const withFile=!!pendingFile;
+        Object.assign(fc,{num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane});
+        if(withFile){fc.file=pendingFile.name;fc.fileData=pendingFileData;}
+        await sbUpdateFacture(fc,pid,withFile);
+        logAudit('Facture modifiée',num+' '+f(amt)+' — '+presta);
+      }
+      _extraFacs=[];pendingFile=null;pendingFileData=null;closeAll();render();return;
     }
-    _extraFacs=[];pendingFile=null;pendingFileData=null;closeAll();save();render();return;
+    const main={num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane,file:pendingFile?pendingFile.name:null,fileData:pendingFileData||null,tsId:_pendingTSForFacture||null};
+    const saved=await sbInsertFacture(main,pid);
+    factures.push(saved);
+    if(_pendingTSForFacture){const _t=tsItems.find(x=>x.id===_pendingTSForFacture);if(_t)_t.factureId=saved.id;_pendingTSForFacture=null;}
+    let extras=0,skipped=0;
+    for(const r of (_extraFacs||[])){
+      const eAmt=Number(r.amt)||0;const eNum=(r.num||'').trim();
+      if(!eNum||!eAmt){if(eNum||eAmt)skipped++;continue;}
+      try{const es=await sbInsertFacture({num:eNum,presta,lotIds:[...lotIds],amt:eAmt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane,file:r.fileName||null,fileData:r.fileData||null},pid);factures.push(es);extras++;}catch(e){skipped++;}
+    }
+    logAudit('Facture déposée',num+' '+f(amt)+' — '+presta+(extras?' (+'+extras+' autre(s))':''));
+    _extraFacs=[];pendingFile=null;pendingFileData=null;closeAll();save();render();
+    if(skipped)setTimeout(()=>alert(skipped+' facture(s) supplémentaire(s) ignorée(s) : numéro ou montant manquant.'),120);
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='Enregistrer';}
+    alert('Erreur lors de l\'enregistrement de la facture : '+e.message);
   }
-  const _newFacId=nid++;
-  factures.push({id:_newFacId,num,presta,lotIds,amt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane:document.getElementById('fac-pennylane').checked,file:pendingFile?pendingFile.name:null,fileData:pendingFileData||null});
-  if(_pendingTSForFacture){const _t=tsItems.find(x=>x.id===_pendingTSForFacture);if(_t)_t.factureId=_newFacId;_pendingTSForFacture=null;}
-  const pl=document.getElementById('fac-pennylane').checked;
-  let extras=0,skipped=0;
-  (_extraFacs||[]).forEach(r=>{
-    const eAmt=Number(r.amt)||0;const eNum=(r.num||'').trim();
-    if(!eNum||!eAmt){if(eNum||eAmt)skipped++;return;}
-    factures.push({id:nid++,num:eNum,presta,lotIds:[...lotIds],amt:eAmt,tva,dateReception:date,datePrevPaiement:datePrev,statut,pennylane:pl,file:r.fileName||null,fileData:r.fileData||null});
-    extras++;
-  });
-  logAudit('Facture déposée',num+' '+f(amt)+' — '+presta+(extras?' (+'+extras+' autre(s))':''));
-  _extraFacs=[];
-  pendingFile=null;pendingFileData=null;closeAll();save();render();
-  if(skipped)setTimeout(()=>alert(skipped+' facture(s) supplémentaire(s) ignorée(s) : numéro ou montant manquant.'),120);
 }
 function handleFile(inp){
   if(!inp.files.length)return;
@@ -6403,19 +6495,25 @@ function batchView(i){
   const w=window.open();
   if(w)w.document.write(r.fileData.startsWith('data:application/pdf')?'<iframe src="'+r.fileData+'" style="width:100%;height:100%;border:none"></iframe>':'<img src="'+r.fileData+'" style="max-width:100%">');
 }
-function saveBatchFactures(){
+async function saveBatchFactures(){
   const d=_batchDefaults();
-  let created=0,skipped=0;
-  _batchRows.forEach(r=>{
+  const pid=currentProject;
+  const rows=_batchRows.filter(r=>{const amt=Number(r.amt)||0;const date=r.date||d.date;const lotId=Number(r.lotId);return amt&&date&&lotId;});
+  const skipped=_batchRows.length-rows.length;
+  if(!rows.length){alert('Aucune facture importée. Chaque ligne doit avoir un montant, une date et un lot affecté.');return;}
+  const btn=document.getElementById('batch-import-btn');if(btn){btn.disabled=true;btn.textContent='Import en cours…';}
+  let created=0;
+  for(const r of rows){
     const amt=Number(r.amt)||0;const date=r.date||d.date;const lotId=Number(r.lotId);
-    if(!amt||!date||!lotId){skipped++;return;}
-    factures.push({id:nid++,num:r.num||'',presta:r.presta||d.presta||'',lotIds:[lotId],amt,tva:Number(r.tva)||d.tva||10,dateReception:date,datePrevPaiement:'',statut:r.statut||d.statut||'attente',pennylane:!!r.pennylane,file:r.fileName||null,fileData:r.fileData||null});
-    created++;
-  });
-  if(!created){alert('Aucune facture importée. Chaque ligne doit avoir un montant, une date et un lot affecté.');return;}
+    try{
+      const es=await sbInsertFacture({num:r.num||'',presta:r.presta||d.presta||'',lotIds:[lotId],amt,tva:Number(r.tva)||d.tva||10,dateReception:date,datePrevPaiement:'',statut:r.statut||d.statut||'attente',pennylane:!!r.pennylane,file:r.fileName||null,fileData:r.fileData||null},pid);
+      factures.push(es);created++;
+      if(btn)btn.textContent='Import… ('+created+'/'+rows.length+')';
+    }catch(e){}
+  }
   logAudit('Import factures en masse',created+' facture(s)');
-  closeAll();save();render();
-  if(skipped)setTimeout(()=>alert(created+' facture(s) importée(s).\n'+skipped+' ligne(s) ignorée(s) : montant, date ou lot manquant.'),120);
+  closeAll();render();
+  setTimeout(()=>alert(created+' facture(s) importée(s).'+(skipped?'\n'+skipped+' ligne(s) ignorée(s) : montant, date ou lot manquant.':'')),120);
 }
 function openAddTS(){
   fillLotSelects();
@@ -7060,19 +7158,20 @@ let currentProject=Number(_lsGet('romeo_project')||0);
 
 function getSnapshot(){
   return{lots:JSON.parse(JSON.stringify(lots)),paiements:JSON.parse(JSON.stringify(paiements)),
-    factures:JSON.parse(JSON.stringify(factures)),tsItems:JSON.parse(JSON.stringify(tsItems)),
+    tsItems:JSON.parse(JSON.stringify(tsItems)),
     projet:JSON.parse(JSON.stringify(projet)),budgetLock:JSON.parse(JSON.stringify(budgetLock))};
 }
 function applySnapshot(snap){
   lots=snap.lots||[];paiements=snap.paiements||[];
-  factures=snap.factures||[];tsItems=snap.tsItems||[];
+  factures=[];tsItems=snap.tsItems||[];
   if(snap.projet)Object.assign(projet,snap.projet);
   budgetLock=(snap.budgetLock&&typeof snap.budgetLock==='object')?JSON.parse(JSON.stringify(snap.budgetLock)):{locked:false,at:null,by:null};
-  nid=Math.max(1,...[...lots,...paiements,...factures,...tsItems].map(x=>x.id+1),200);
+  nid=Math.max(1,...[...lots,...paiements,...tsItems].map(x=>x.id+1),200);
 }
 function switchProject(idx){
   _lsSet('romeo_snap_'+currentProject,JSON.stringify(getSnapshot()));
   currentProject=idx;
+  _facSig=null;
   _lsSet('romeo_project',idx);
   const saved=_lsGet('romeo_snap_'+idx);
   if(saved){
@@ -7099,7 +7198,7 @@ function switchProject(idx){
       if(updatedBy===(typeof currentUser!=='undefined'?currentUser.name:null))return;
       _sbApplyingRemote=true;
       lots=remoteData.lots||[];paiements=remoteData.paiements||[];
-      factures=remoteData.factures||[];tsItems=remoteData.tsItems||[];
+      tsItems=remoteData.tsItems||[];
       if(remoteData.projet)Object.assign(projet,remoteData.projet);
       if(remoteData.budgetLock)budgetLock=remoteData.budgetLock;
       nid=remoteData.nid||nid;
@@ -7163,7 +7262,7 @@ render();
     if(updatedBy===(typeof currentUser!=='undefined'?currentUser.name:null))return; // ignore our own echo
     _sbApplyingRemote=true;
     lots=remoteData.lots||[];paiements=remoteData.paiements||[];
-    factures=remoteData.factures||[];tsItems=remoteData.tsItems||[];
+    tsItems=remoteData.tsItems||[];
     if(remoteData.projet)Object.assign(projet,remoteData.projet);
     if(remoteData.budgetLock)budgetLock=remoteData.budgetLock;
     nid=remoteData.nid||nid;
