@@ -7305,7 +7305,7 @@ render();
 
 
 <style>
-#login-screen{position:fixed;inset:0;z-index:9999;background:#f5f4f0;display:flex;align-items:center;justify-content:center;font-family:inherit}
+#login-screen{position:fixed;inset:0;z-index:9999;background:#f5f4f0;display:flex;align-items:center;justify-content:center;font-family:inherit;overflow-y:auto;padding:24px 0}
 #login-screen.fade-out{animation:loginFadeOut .6s ease forwards}
 @keyframes loginFadeOut{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.04)}}
 .loader{--duration:3s;--primary:rgba(39,94,254,1);--primary-light:#2f71ff;--primary-rgba:rgba(39,94,254,0);width:200px;height:320px;position:relative;transform-style:preserve-3d}
@@ -7350,7 +7350,7 @@ render();
 .cp-btn{width:100%;margin-top:12px;padding:15px;font-size:15px;font-weight:700;background:#275efe;color:#fff;border:none;border-radius:12px;cursor:pointer}
 .cp-btn:hover{opacity:.9}
 .cp-error{color:#ef4444;font-size:12px;margin-top:10px;min-height:18px;text-align:center}
-.cp-admin-card{background:#fff;border-radius:20px;padding:40px 44px;box-shadow:0 8px 40px rgba(0,0,0,.1)}
+.cp-admin-card{background:#fff;border-radius:20px;padding:40px 44px;box-shadow:0 8px 40px rgba(0,0,0,.1);max-height:calc(100vh - 48px);overflow-y:auto;box-sizing:border-box}
 .admin-login-input{width:100%;padding:10px 14px;font-size:14px;border:1.5px solid #e5e3dd;border-radius:8px;outline:none;background:#faf9f7;color:#1c1c1a;box-sizing:border-box}
 .admin-login-btn{padding:10px 20px;font-size:13px;font-weight:700;background:#1c1c1a;color:#fff;border:none;border-radius:8px;cursor:pointer}
 </style>
